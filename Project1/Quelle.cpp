@@ -51,6 +51,7 @@
 			LÖSUNG: Achtung es scheint das System zu Überladen wenn 3 strings in Folge an die Konsole übergeben werden, anders Trennen der string Übertragung
 
 			Zuweisen der Auswählbaren Missionen in eine Map legen, um diese im Auswahlfenster nur einmal zu haben.
+			LÖSUNG: Mithilfe von DISTINCT wird in SQL bereits gefiltert.
 
 */
 #endif
@@ -323,11 +324,6 @@ public:
 	void Tabelle_erstellen()
 	{
 		stmt = con->createStatement();
-		stmt->execute("DROP TABLE IF EXISTS " + INVENTORY);
-			cout << "Finished dropping table " + INVENTORY + " (if existed)" << endl;
-		stmt->execute("CREATE TABLE " + INVENTORY + " (id serial PRIMARY KEY, name VARCHAR(50), quantity INTEGER);");
-			cout << "Finished creating table " + INVENTORY << endl;
-
 		stmt->execute("DROP TABLE IF EXISTS " + CAVEENTRACE);
 			cout << "Finished dropping table " + CAVEENTRACE +" (if existed)" << endl;
 		stmt->execute("CREATE TABLE " + CAVEENTRACE + " (id serial PRIMARY KEY, Position_X INTEGER, Position_Y INTEGER, Grundriss VARCHAR(50), Erzdeposits INTEGER);");
@@ -340,30 +336,37 @@ public:
 
 		delete stmt;
 
-		//Daten_Einfügen("banana", 150);
-		//Daten_Einfügen("orange", 154);
-		//Daten_Einfügen("apple", 100);
-
 		Daten_Einfügen(4, 8, "Kleine", 10);
 
-		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Landung fuer Scanne 3 Orte");
-		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Landung fuer Scanne drei Orte", 250);
+		Daten_Einfügen(1, 1, "Brueckenkopf", "Aufklaerung", "Aufklaerung Waldzone - Landung");
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Landung", 100);
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 3");
+		Daten_Einfügen(1, 1, "Argos", "Erkundung", "Erkunde Icarus - Landung");
+		Daten_Einfügen(1, 1, "Landwirtschaft", "Vorratslager", "Vorraete Wald", 250);
+		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Landung", 175);
+		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Erreiche den Bauplatz.");
+		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Errichte ein Jagdaußenposten.");
+		Daten_Einfügen(1, 1, "Sandige Bruecken", "Hardcore Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.",450,50);
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Landung", 250);
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 3");
+		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Landung", 250);
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die ersten Absturzstelle");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die zweite Absturzstelle");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die letzte Absturzstelle");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Besiege die Kreatur");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die dritte Absturzstelle");
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Landung", 200);
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 3");
 	}
 
 	void Daten_Lesen()
 	{
-		//select  
-		//pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + INVENTORY + ";");
-		//result = pstmt->executeQuery();
-
-		//while (result->next())
-		//	printf("Reading from table Inventory=(%d, %s, %d)\n", result->getInt(1), result->getString(2).c_str(), result->getInt(3));
-
 		//select  
 		pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + CAVEENTRACE + ";");
 		result = pstmt->executeQuery();
@@ -781,10 +784,6 @@ int main()
 			{
 				Missionsliste = SQL.Daten_Lesen_Missionsname();
 			}
-			if (ImGui::Button("SQL Lesen3"))
-			{
-				SQL.Daten_Lesen(Missionsnamensuche);
-			}
 
 			if (ImGui::Button("SQL Updaten"))
 				Updaten = !Updaten;
@@ -857,7 +856,7 @@ int main()
 						ImGui::TableNextColumn();
 						string combi = Missionsliste[i].first + Missionsliste[i].second;
 						if (ImGui::Button(combi.c_str(), ImVec2(-FLT_MIN, 0.0f)))
-							Missionsnamensuche = Missionsliste[i].first;		
+							SQL.Daten_Lesen(Missionsliste[i].first);
 					}
 					ImGui::EndTable();
 				}

@@ -81,4 +81,7 @@
       <Filter>Headerdateien\imgui</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMet.txt" />
+  </ItemGroup>
 </Project>

@@ -347,7 +347,7 @@ public:
 		Daten_Einfügen(1, 1, "Landwirtschaft", "Vorratslager", "Vorraete Wald", 250);
 		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Landung", 175);
 		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Erreiche den Bauplatz.");
-		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Errichte ein Jagdaußenposten.");
+		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Errichte ein Jagdaussenposten.");
 		Daten_Einfügen(1, 1, "Sandige Bruecken", "Hardcore Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.",450,50);
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Landung", 250);
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 1");
@@ -613,7 +613,7 @@ int main()
 	bool show_demo_window = true;
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-
+	Missionsliste = SQL.Daten_Lesen_Missionsname();
 
 	// configure VAO/VBO for texture quads
 	// -----------------------------------
@@ -675,10 +675,16 @@ int main()
 	ourShader.setInt("texture1", 0);
 	ourShader.setInt("texture2", 1);
 
+	static bool EInfügen = false;
+	static bool Updaten = false;
+	static bool Löschen = false;
+	static bool Inventory_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
+	static bool Mission_Ausgewählt = false;
+
 	// render loop
 	// -----------
 	while (!glfwWindowShouldClose(window))
-	{
+	{		
 		// input
 		// -----
 		processInput(window);
@@ -693,18 +699,21 @@ int main()
 			ImGui::ShowDemoWindow(&show_demo_window);
 
 		// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
-		{
-
+		{			
 			ImGui::Begin("Demo Interface Interaktive Map");                          // Create a window called "Hello, world!" and append into it.
+
+			if (Mission_Ausgewählt)
+			{
+				if (ImGui::ArrowButton("##left", ImGuiDir_Left)) //ImGui::SameLine(0.0f, spacing);
+				{
+					Missionsliste = SQL.Daten_Lesen_Missionsname();
+					Mission_Ausgewählt = false;
+				}
+			}
 
 			ImGui::Text("Dies ist die Datensteuerung fuer\ndie Interaktive Karte.");               // Display some text (you can use a format strings too)
 			ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-
-			static bool EInfügen = false;
-			static bool Updaten = false;
-			static bool Löschen = false;
-			static bool Inventory_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
-			
+						
 			if (ImGui::Button("SQL Tabelle"))                           
 				SQL.Tabelle_erstellen();
 
@@ -780,11 +789,6 @@ int main()
 			if (ImGui::Button("SQL Lesen"))                            
 				SQL.Daten_Lesen();
 
-			if (ImGui::Button("SQL Lesen2"))
-			{
-				Missionsliste = SQL.Daten_Lesen_Missionsname();
-			}
-
 			if (ImGui::Button("SQL Updaten"))
 				Updaten = !Updaten;
 			if (Updaten)
@@ -843,6 +847,7 @@ int main()
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 			// Liste der Missionen
+			if(!Mission_Ausgewählt) 
 			{
 				ImGuiWindowFlags window_flags = ImGuiWindowFlags_None;
 				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
@@ -856,7 +861,11 @@ int main()
 						ImGui::TableNextColumn();
 						string combi = Missionsliste[i].first + Missionsliste[i].second;
 						if (ImGui::Button(combi.c_str(), ImVec2(-FLT_MIN, 0.0f)))
+						{
 							SQL.Daten_Lesen(Missionsliste[i].first);
+							Mission_Ausgewählt = true;
+						}
+							
 					}
 					ImGui::EndTable();
 				}

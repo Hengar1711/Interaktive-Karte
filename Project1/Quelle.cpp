@@ -321,6 +321,37 @@ public:
 		cout << "One row in " + MISSIONEN + " inserted." << endl;
 	}
 	
+	void Vorgefertigte_Daten_Einlesen()
+	{
+		Daten_Einfügen(4, 8, "Kleine", 10);
+
+		Daten_Einfügen(1, 1, "Brueckenkopf", "Aufklaerung", "Aufklaerung Waldzone - Landung");
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Landung", 100);
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 3");
+		Daten_Einfügen(1, 1, "Argos", "Erkundung", "Erkunde Icarus - Landung");
+		Daten_Einfügen(1, 1, "Landwirtschaft", "Vorratslager", "Vorraete Wald", 250);
+		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Landung", 175);
+		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Erreiche den Bauplatz.");
+		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Errichte ein Jagdaussenposten.");
+		Daten_Einfügen(1, 1, "Sandige Bruecken", "Hardcore Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.", 450, 50);
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Landung", 250);
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 3");
+		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Landung", 250);
+		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die ersten Absturzstelle");
+		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die zweite Absturzstelle");
+		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die letzte Absturzstelle");
+		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Besiege die Kreatur");
+		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die dritte Absturzstelle");
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Landung", 200);
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 3");
+	}
+
 	void Tabelle_erstellen()
 	{
 		stmt = con->createStatement();
@@ -336,33 +367,7 @@ public:
 
 		delete stmt;
 
-		Daten_Einfügen(4, 8, "Kleine", 10);
-
-		Daten_Einfügen(1, 1, "Brueckenkopf", "Aufklaerung", "Aufklaerung Waldzone - Landung");
-		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Landung", 100);
-		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 1");
-		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 2");
-		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 3");
-		Daten_Einfügen(1, 1, "Argos", "Erkundung", "Erkunde Icarus - Landung");
-		Daten_Einfügen(1, 1, "Landwirtschaft", "Vorratslager", "Vorraete Wald", 250);
-		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Landung", 175);
-		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Erreiche den Bauplatz.");
-		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Errichte ein Jagdaussenposten.");
-		Daten_Einfügen(1, 1, "Sandige Bruecken", "Hardcore Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.",450,50);
-		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Landung", 250);
-		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 1");
-		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 2");
-		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 3");
-		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Landung", 250);
-		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die ersten Absturzstelle");
-		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die zweite Absturzstelle");
-		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die letzte Absturzstelle");
-		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Besiege die Kreatur");
-		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die dritte Absturzstelle");
-		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Landung", 200);
-		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 1");
-		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 2");
-		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 3");
+		Vorgefertigte_Daten_Einlesen();
 	}
 
 	void Daten_Lesen()

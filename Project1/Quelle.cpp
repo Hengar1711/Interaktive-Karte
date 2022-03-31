@@ -90,8 +90,8 @@
 
 	//for demonstration only. never save your password in the code!
 	const std::string server = "tcp://127.0.0.1:3306";
-	const std::string username = "root";
-	const std::string password = "Drachenwolf!2";
+	const std::string username = "Hengar";
+	const std::string password = "Affenbrot12";
 
 	/// Holds all state information relevant to a character as loaded using FreeType
 	struct Character
@@ -428,12 +428,21 @@ public:
 		pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + SQL_WO + MISSIONSNAME +  "='" + name + "'");
 
 		result = pstmt->executeQuery();
+		bool Erste_Missionsinfo = false;
 
 		while (result->next())
 		{
-			cout << "Gelesen von Tabelle " + MISSIONEN + " = bei x=" << result->getInt(2) << " | y=" << result->getInt(3) << endl;
-			cout << "Die Mission \"" << result->getString(4).c_str() << ": " << result->getString(5).c_str() << "\"" << endl;
-			cout << "hat die Aufgabe: \"" << result->getString(6).c_str() << "\" und die Belohnungen " << result->getInt(7) << " Ren und " << result->getInt(8) << " Exotics." << endl;
+			if (!Erste_Missionsinfo)
+			{
+				cout << "Gelesen von Tabelle " + MISSIONEN + " = bei x=" << result->getInt(2) << " | y=" << result->getInt(3) << endl;
+				cout << "Die Mission \"" << result->getString(4).c_str() << ": " << result->getString(5).c_str() << "\"" << endl;
+				Erste_Missionsinfo = true;
+			}
+			
+			cout << "Die Aufgabe ist: \"" << result->getString(6).c_str() << "\"";
+			if (result->getInt(7) != 0)
+				cout << " und als Belohnungen gibt es " << result->getInt(7) << " Ren und " << result->getInt(8) << " Exotics.";
+			cout << endl;
 		}		
 	}
 

@@ -1,3 +1,9 @@
+/* 
+	Liezensierungen
+
+		<a href="https://de.vecteezy.com/gratis-vektor/tropfen">Tropfen Vektoren von Vecteezy</a>
+*/
+
 #ifndef INCLUDES
 #define INCLUDES
 	#include <stdlib.h>
@@ -43,8 +49,7 @@
 #pragma warning (disable: 26451)    // [Static Analyzer] Arithmetic overflow : Using operator 'xxx' on a 4 byte value and then casting the result to a 8 byte value. Cast the value to the wider type before calling operator 'xxx' to avoid overflow(io.2).
 #endif
 
-#ifdef WIKI
-/*
+/*	WIKI
 	Problem Stellung: 
 			- Die String werden beim Dritten %s nicht Ordnungsgemäß an die Konsole übergeben. 
 			Mögliche Idee, Prüfen der Umgebungsvariablen der Konsolen
@@ -53,8 +58,13 @@
 			Zuweisen der Auswählbaren Missionen in eine Map legen, um diese im Auswahlfenster nur einmal zu haben.
 			LÖSUNG: Mithilfe von DISTINCT wird in SQL bereits gefiltert.
 
+			Erstellen der Karte in einem Bereich "außerhalb der Kamera" 
+			Mapping eines 2ten Screen Bereichs aus das gezeichnete Viereck.
+			Zeichnen der Markierungen mithilfe von Alpha Kanal und kleinen Vierecken wo die "Spitze" (Untere Mitte) auf dem Zielpunkt zeigt.
+			Aktueller Weg: Zeichne die Plane als Semi "3d Objekt" - Deaktivere die Kamera Drehung - Begrenze die Bewegung auf die entsprechenden Kartenränder
+
+
 */
-#endif
 
 #ifndef DEFINITIONEN
 #define DEFINITIONEN
@@ -113,6 +123,86 @@
 inline void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 inline void processInput(GLFWwindow *window);
 inline void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color);
+
+typedef struct
+{
+	unsigned char imageTypeCode;
+	short int imageWidth;
+	short int imageHeight;
+	unsigned char bitCount;
+	unsigned char *imageData;
+} TGAFILE;
+
+bool LoadTGAFile(char *filename, TGAFILE *tgaFile)
+{
+	FILE *filePtr;
+	unsigned char ucharBad;
+	short int sintBad;
+	long imageSize;
+	int colorMode;
+	unsigned char colorSwap;
+
+	// Open the TGA file.
+	filePtr = fopen(filename, "rb");
+	if (filePtr == NULL)
+	{
+		return false;
+	}
+
+	// Read the two first bytes we don't need.
+	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
+	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
+
+	// Which type of image gets stored in imageTypeCode.
+	fread(&tgaFile->imageTypeCode, sizeof(unsigned char), 1, filePtr);
+
+	// For our purposes, the type code should be 2 (uncompressed RGB image)
+	// or 3 (uncompressed black-and-white images).
+	if (tgaFile->imageTypeCode != 2 && tgaFile->imageTypeCode != 3)
+	{
+		fclose(filePtr);
+		return false;
+	}
+
+	// Read 13 bytes of data we don't need.
+	fread(&sintBad, sizeof(short int), 1, filePtr);
+	fread(&sintBad, sizeof(short int), 1, filePtr);
+	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
+	fread(&sintBad, sizeof(short int), 1, filePtr);
+	fread(&sintBad, sizeof(short int), 1, filePtr);
+
+	// Read the image's width and height.
+	fread(&tgaFile->imageWidth, sizeof(short int), 1, filePtr);
+	fread(&tgaFile->imageHeight, sizeof(short int), 1, filePtr);
+
+	// Read the bit depth.
+	fread(&tgaFile->bitCount, sizeof(unsigned char), 1, filePtr);
+
+	// Read one byte of data we don't need.
+	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
+
+	// Color mode -> 3 = BGR, 4 = BGRA.
+	colorMode = tgaFile->bitCount / 8;
+	imageSize = tgaFile->imageWidth * tgaFile->imageHeight * colorMode;
+
+	// Allocate memory for the image data.
+	tgaFile->imageData = (unsigned char*)malloc(sizeof(unsigned char)*imageSize);
+
+	// Read the image data.
+	fread(tgaFile->imageData, sizeof(unsigned char), imageSize, filePtr);
+
+	// Change from BGR to RGB so OpenGL can read the image data.
+	for (int imageIdx = 0; imageIdx < imageSize; imageIdx += colorMode)
+	{
+		colorSwap = tgaFile->imageData[imageIdx];
+		tgaFile->imageData[imageIdx] = tgaFile->imageData[imageIdx + 2];
+		tgaFile->imageData[imageIdx + 2] = colorSwap;
+	}
+
+	fclose(filePtr);
+	return true;
+}
+
 
 inline void create_Texture(unsigned int &texture)
 {
@@ -281,16 +371,6 @@ public:
 		if (result != 0)	delete result;
 	}
 
-	// Demo - Funktion Anhand des Standard Beispiels "inventroy" wird Demonstiert, wie der Aufbau ist.
-	void Daten_Einfügen(string Objekt, int Anzahl) 
-	{
-		pstmt = con->prepareStatement(SQL_EINFÜGEN_IN + INVENTORY + "(name, quantity) VALUES(?,?);");
-
-		pstmt->setString(1, Objekt);
-		pstmt->setInt(2, Anzahl);
-		pstmt->execute();
-			cout << "One row in " + INVENTORY + "  inserted." << endl;
-	}
 	/* Funktion zum Einfügen der Höhlen Daten - Speicher der Position x + y, der Grundriss Datei und der Typischen Erz Knoten Anzahl*/
 	void Daten_Einfügen(int X, int Y, string Grundriss, int Anzahl)
 	{
@@ -321,37 +401,113 @@ public:
 		cout << "One row in " + MISSIONEN + " inserted." << endl;
 	}
 	
+	/* Vorgefertigte Konfiguration */
 	void Vorgefertigte_Daten_Einlesen()
 	{
 		Daten_Einfügen(4, 8, "Kleine", 10);
 
 		Daten_Einfügen(1, 1, "Brueckenkopf", "Aufklaerung", "Aufklaerung Waldzone - Landung");
+
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Landung", 100);
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 1");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 2");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 3");
+
+		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Landung", 75);
+		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Alpha.");
+		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Beta.");
+		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Gamma.");
+		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte das Uplink am Standort Delta ein.");
+
+		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Landung", 125, 10);
+		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte die Geostation am Standort Alpha.");
+		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte die Geostation am Standort Beta.");
+		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte die Geostation am Standort Gamma.");
+		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte das Uplink am Standort Delta ein.");
+
 		Daten_Einfügen(1, 1, "Argos", "Erkundung", "Erkunde Icarus - Landung");
+
 		Daten_Einfügen(1, 1, "Landwirtschaft", "Vorratslager", "Vorraete Wald", 250);
+
+		Daten_Einfügen(1, 1, "Seltsame Ernte", "Bio Forschung", "Bio Forschung: Waldbiom", 50);
+
+		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Landung", 125);
+		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Folge der Spur des Raubtiers");
+		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Toete das Raubtier");
+
+		Daten_Einfügen(1, 1, "Todesliste", "Schwere Vernichtung", "Landung", 225);
+		Daten_Einfügen(1, 1, "Todesliste", "Schwere Vernichtung", "Folge der Spur des Raubtiers");
+		Daten_Einfügen(1, 1, "Todesliste", "Schwere Vernichtung", "Toete das Raubtier");
+
+		Daten_Einfügen(1, 1, "Todesliste", "Hardcore Vernichtung", "Landung", 225, 50);
+		Daten_Einfügen(1, 1, "Todesliste", "Hardcore Vernichtung", "Folge der Spur des Raubtiers");
+		Daten_Einfügen(1, 1, "Todesliste", "Hardcore Vernichtung", "Toete das Raubtier");
+
+		Daten_Einfügen(1, 1, "Probelauf", "Expedition", "Expedition Canyons", 125);
+
+		Daten_Einfügen(1, 1, "Todesstrahl", "Scan", "Landung", 150);
+		Daten_Einfügen(1, 1, "Todesstrahl", "Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Todesstrahl", "Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Todesstrahl", "Scan", "Scanne Ort 3");
+
 		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Landung", 175);
 		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Erreiche den Bauplatz.");
 		Daten_Einfügen(1, 1, "Payramide", "Aufbau", "Errichte ein Jagdaussenposten.");
+
+		Daten_Einfügen(1, 1, "Sandige Bruecken", "Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.", 300);
+
 		Daten_Einfügen(1, 1, "Sandige Bruecken", "Hardcore Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.", 450, 50);
+
+		Daten_Einfügen(1, 1, "Sandsturm", "Erkundung", "Erkunde Icarus.");
+
+		Daten_Einfügen(1, 1, "Wasserwaage", "Untersuchung", "Landung", 150);
+		Daten_Einfügen(1, 1, "Wasserwaage", "Untersuchung", "Uebertrage Geodaten vom Standort Alpha.");
+		Daten_Einfügen(1, 1, "Wasserwaage", "Untersuchung", "Uebertrage Geodaten vom Standort Zulu.");
+
+		Daten_Einfügen(1, 1, "Wasserwaage", "Hardcore Untersuchung", "Landung", 350,50);
+		Daten_Einfügen(1, 1, "Wasserwaage", "Hardcore Untersuchung", "Uebertrage Geodaten vom Standort Alpha.");
+		Daten_Einfügen(1, 1, "Wasserwaage", "Hardcore Untersuchung", "Uebertrage Geodaten vom Standort Zulu.");
+
+		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Landung", 150);
+		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Sammle die verlorene gegangenen Komponenten des Prototyps.");
+		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Untersuche Absturzstelle Alpha");
+		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Untersuche Absturzstelle Bravo");
+		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Untersuche Absturzstelle Delta");
+
+		Daten_Einfügen(1, 1, "Massiv Metall", "Schwere Vorraete", "Landung", 350);
+		Daten_Einfügen(1, 1, "Massiv Metall", "Schwere Vorraete", "Aufgelistete Ressourcen in Frachtkapsel ablegen.");
+
+		Daten_Einfügen(1, 1, "Eissturm", "Expedition", "Landung", 125);
+		Daten_Einfügen(1, 1, "Eissturm", "Expedition", "Platziere die Stoereinrichtung auf dem boden des arktischen Gletschers unter einem Underschlupf und aktiviere sie.");
+		Daten_Einfügen(1, 1, "Eissturm", "Expedition", "Berge Geraetekomponente 1.");
+		Daten_Einfügen(1, 1, "Eissturm", "Expedition", "Berge Geraetekomponente 2.");
+		Daten_Einfügen(1, 1, "Eissturm", "Expedition", "Berge Geraetekomponente 3.");
+		Daten_Einfügen(1, 1, "Eissturm", "Expedition", "Stelle das Geraet zusammen.");
+
+		Daten_Einfügen(1, 1, "Tiefe Adern", "Extraktion", "Landung", 150);
+		Daten_Einfügen(1, 1, "Tiefe Adern", "Extraktion", "Lokalesiere Exotische Materie.");
+		Daten_Einfügen(1, 1, "Tiefe Adern", "Extraktion", "Baue Exotische Materie ab.");
+		Daten_Einfügen(1, 1, "Tiefe Adern", "Extraktion", "Schaff edie Exotische Materie zum Landeschiff Lager.");
+
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Landung", 250);
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 1");
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 2");
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 3");
+
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Landung", 250);
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die ersten Absturzstelle");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die zweite Absturzstelle");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die letzte Absturzstelle");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Besiege die Kreatur");
 		Daten_Einfügen(1, 1, "El Camino", "Expedition", "Orte die dritte Absturzstelle");
+
 		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Landung", 200);
 		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 1");
 		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 2");
 		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 3");
 	}
 
+	/* Basisfunktion sofern noch keine Tabelle erstellt worden ist */
 	void Tabelle_erstellen()
 	{
 		stmt = con->createStatement();
@@ -362,7 +518,7 @@ public:
 
 		stmt->execute("DROP TABLE IF EXISTS " + MISSIONEN);
 			cout << "Finished dropping table " + MISSIONEN + " (if existed)" << endl;
-		stmt->execute("CREATE TABLE " + MISSIONEN + " (id serial PRIMARY KEY, Position_X INTEGER, Position_Y INTEGER, Missionsname VARCHAR(50), Missionstyp VARCHAR(50), Missionsbeschreibung VARCHAR(50), Ren INTEGER, Exotics INTEGER);");
+		stmt->execute("CREATE TABLE " + MISSIONEN + " (id serial PRIMARY KEY, Position_X INTEGER, Position_Y INTEGER, Missionsname VARCHAR(50), Missionstyp VARCHAR(50), Missionsbeschreibung VARCHAR(150), Ren INTEGER, Exotics INTEGER);");
 			cout << "Finished creating table" + MISSIONEN << endl;
 
 		delete stmt;
@@ -370,6 +526,7 @@ public:
 		Vorgefertigte_Daten_Einlesen();
 	}
 
+	/* Dies ist eine Demo Funktion zum Außlesen aller Daten ungefiltert und unsortiert */
 	void Daten_Lesen()
 	{
 		//select  
@@ -421,16 +578,16 @@ public:
 		result = pstmt->executeQuery();
 
 		while (result->next())
-			temp.push_back(pair<string, string>(result->getString(1) , ": " + result->getString(2)));
+			temp.push_back(pair<string, string>(result->getString(1) , result->getString(2)));
 
 		return temp;
 	}
 
-	/* DemoFunktion zum Speziellen Filtern nach Namen - Wird wichtig sobald nur noch die Typesierten Missionsinformationen geladen werden sollen */
-	void Daten_Lesen(string name)
+	/* Funktion zum Auslesen der Ausgewählten Missionsinformationen - Clean(Konsole) - TODO(Im Programm): Rückgabe als Datensatz zum weiterverarbeiten innerhalb der Schleife */
+	void Daten_Lesen(pair<string,string> name)
 	{
 		//select  
-		pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + SQL_WO + MISSIONSNAME +  "='" + name + "'");
+		pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + SQL_WO + MISSIONSNAME +  "='" + name.first + "'" + " AND " + MISSIONSTYP + "='" + name.second + "'" );
 
 		result = pstmt->executeQuery();
 		bool Erste_Missionsinfo = false;
@@ -451,7 +608,7 @@ public:
 		}		
 	}
 
-	/* Es ist nur eine Testfunktion */
+	/* TODO(Im Programm) nach Loginfenster zum Verschieben einzelner Objekte als Datenbank Manager */
 	void Daten_Updaten(int Menge, string name)
 	{
 		//update
@@ -463,7 +620,7 @@ public:
 		;
 	}
 	
-	/* Es ist nur eine Testfunktion */
+	/* TODO(Im Programm) nach Loginfenster zum entfernen einzelner Objekte als Datenbank Manager */
 	void Daten_Löschen(string name)
 	{
 		//delete
@@ -629,6 +786,12 @@ int main()
 
 	Missionsliste = SQL.Daten_Lesen_Missionsname();
 
+	TGAFILE Roter_Tropfen,Blauer_Tropfen,Gelber_Tropfen,Schwarzer_Tropfen;
+	
+	//char* Tropfen{ "Resourcen/Roter Tropfen.tga" };
+
+	//LoadTGAFile(, &Roter_Tropfen);
+
 	// configure VAO/VBO for texture quads
 	// -----------------------------------
 	glGenVertexArrays(1, &VAO);
@@ -692,7 +855,7 @@ int main()
 	static bool EInfügen = false;
 	static bool Updaten = false;
 	static bool Löschen = false;
-	static bool Inventory_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
+	static bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
 	static bool Mission_Ausgewählt = false;
 
 	// render loop
@@ -735,19 +898,19 @@ int main()
 				EInfügen = !EInfügen;
 			if (EInfügen)
 			{
-				if (!Inventory_Caveentrace)
+				if (!Mission_Caveentrace)
 				{
 					if (ImGui::Button("Einfuegen ist Inventory"))
-						Inventory_Caveentrace = true;
+						Mission_Caveentrace = true;
 				}
 				else
 					if (ImGui::Button("Einfuegen ist Caveentrace"))
-						Inventory_Caveentrace = false;
+						Mission_Caveentrace = false;
 
-				if(!Inventory_Caveentrace)
+				if(!Mission_Caveentrace)
 				{
-					static char str0[128] = "Hello, world!";
-					ImGui::InputText("input text", str0, IM_ARRAYSIZE(str0));
+					static char Missionname[128] = "Hello, world!";
+					ImGui::InputText("Missionsname", Missionname, IM_ARRAYSIZE(Missionname));
 					ImGui::SameLine(); HelpMarker(
 						"USER:\n"
 						"Hold SHIFT or use mouse to select text.\n"
@@ -761,12 +924,45 @@ int main()
 						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
 						"in imgui_demo.cpp).");
 
-					static int i0 = 123;
-					ImGui::InputInt("input int", &i0);
+					static char Missionstyp[128] = "Hello, world!";
+					ImGui::InputText("Missionstyp", Missionstyp, IM_ARRAYSIZE(Missionstyp));
+					ImGui::SameLine(); HelpMarker(
+						"USER:\n"
+						"Hold SHIFT or use mouse to select text.\n"
+						"CTRL+Left/Right to word jump.\n"
+						"CTRL+A or double-click to select all.\n"
+						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+						"CTRL+Z,CTRL+Y undo/redo.\n"
+						"ESCAPE to revert.\n\n"
+						"PROGRAMMER:\n"
+						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
+						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
+						"in imgui_demo.cpp).");
+
+					static char Missionsbeschreibung[512] = "Hello, world!";
+					ImGui::InputText("Missionsbeschreibung", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));
+					ImGui::SameLine(); HelpMarker(
+						"USER:\n"
+						"Hold SHIFT or use mouse to select text.\n"
+						"CTRL+Left/Right to word jump.\n"
+						"CTRL+A or double-click to select all.\n"
+						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+						"CTRL+Z,CTRL+Y undo/redo.\n"
+						"ESCAPE to revert.\n\n"
+						"PROGRAMMER:\n"
+						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
+						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
+						"in imgui_demo.cpp).");
+
+					static int ren = 123;
+					ImGui::InputInt("Ren", &ren);
+
+					static int exo = 123;
+					ImGui::InputInt("Exotics", &exo);
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(string(str0), i0); EInfügen = false;
+						SQL.Daten_Einfügen(1,1, Missionname, Missionstyp, Missionsbeschreibung, ren, exo); EInfügen = false;
 					}
 				}
 				else
@@ -876,7 +1072,7 @@ int main()
 						string combi = Missionsliste[i].first + Missionsliste[i].second;
 						if (ImGui::Button(combi.c_str(), ImVec2(-FLT_MIN, 0.0f)))
 						{
-							SQL.Daten_Lesen(Missionsliste[i].first);
+							SQL.Daten_Lesen(Missionsliste[i]);
 							Mission_Ausgewählt = true;
 						}
 							

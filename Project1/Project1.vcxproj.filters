@@ -16,6 +16,9 @@
     <Filter Include="Headerdateien\imgui">
       <UniqueIdentifier>{adfff808-5c7d-451d-b751-0fb8a7cc01d3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Headerdateien\PNG">
+      <UniqueIdentifier>{53eb01bb-57e2-497f-b3a7-baee52de3aa4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Quelle.cpp">
@@ -48,6 +51,9 @@
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>Headerdateien\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="lodepng.cpp">
+      <Filter>Headerdateien\PNG</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="khrplatform.h">
@@ -79,6 +85,9 @@
     </ClInclude>
     <ClInclude Include="imgui\imstb_textedit.h">
       <Filter>Headerdateien\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="lodepng.h">
+      <Filter>Headerdateien\PNG</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

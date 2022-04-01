@@ -140,6 +140,7 @@
     <ClCompile Include="imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="lodepng.cpp" />
     <ClCompile Include="Quelle.cpp" />
     <ClCompile Include="stb imple.cpp" />
   </ItemGroup>
@@ -152,6 +153,7 @@
     <ClInclude Include="imgui\imgui_internal.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="khrplatform.h" />
+    <ClInclude Include="lodepng.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="stb_image.h" />
   </ItemGroup>

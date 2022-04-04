@@ -5,7 +5,7 @@
 */
 
 #ifndef INCLUDES
-#define INCLUDES
+	#define INCLUDES
 	#include <stdlib.h>
 	#include <iostream>
 	#include <sstream>
@@ -30,6 +30,7 @@
 	#include FT_FREETYPE_H
 
 	#include "Shader.h"
+	#include "lodepng.h"
 
 	#include <iostream>
 
@@ -67,7 +68,8 @@
 */
 
 #ifndef DEFINITIONEN
-#define DEFINITIONEN
+	#define DEFINITIONEN
+	#define uint unsigned int
 
 	#define MISSIONSNAME string("Missionsname")
 	#define MISSIONSTYP string("Missionstyp")
@@ -91,8 +93,8 @@
 	
 #endif
 
-#ifndef BASICDEFINITIONEN
-#define BASICDEFINITIONEN
+#ifndef BASICDECLARATIONEN
+#define BASICDECLARATIONEN
 
 	// settings
 	const unsigned int SCR_WIDTH = 800;
@@ -115,121 +117,44 @@
 	unsigned int VAO, VBO;
 
 	using namespace std;
+
+	
 	
 	vector<pair<string,string>> Missionsliste;
 	string Missionsnamensuche;
+
+	
 #endif
 
 inline void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 inline void processInput(GLFWwindow *window);
 inline void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color);
 
-typedef struct
+inline void loadTexture(unsigned int &id,char const * path)
 {
-	unsigned char imageTypeCode;
-	short int imageWidth;
-	short int imageHeight;
-	unsigned char bitCount;
-	unsigned char *imageData;
-} TGAFILE;
-
-bool LoadTGAFile(char *filename, TGAFILE *tgaFile)
-{
-	FILE *filePtr;
-	unsigned char ucharBad;
-	short int sintBad;
-	long imageSize;
-	int colorMode;
-	unsigned char colorSwap;
-
-	// Open the TGA file.
-	filePtr = fopen(filename, "rb");
-	if (filePtr == NULL)
-	{
-		return false;
-	}
-
-	// Read the two first bytes we don't need.
-	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
-	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
-
-	// Which type of image gets stored in imageTypeCode.
-	fread(&tgaFile->imageTypeCode, sizeof(unsigned char), 1, filePtr);
-
-	// For our purposes, the type code should be 2 (uncompressed RGB image)
-	// or 3 (uncompressed black-and-white images).
-	if (tgaFile->imageTypeCode != 2 && tgaFile->imageTypeCode != 3)
-	{
-		fclose(filePtr);
-		return false;
-	}
-
-	// Read 13 bytes of data we don't need.
-	fread(&sintBad, sizeof(short int), 1, filePtr);
-	fread(&sintBad, sizeof(short int), 1, filePtr);
-	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
-	fread(&sintBad, sizeof(short int), 1, filePtr);
-	fread(&sintBad, sizeof(short int), 1, filePtr);
-
-	// Read the image's width and height.
-	fread(&tgaFile->imageWidth, sizeof(short int), 1, filePtr);
-	fread(&tgaFile->imageHeight, sizeof(short int), 1, filePtr);
-
-	// Read the bit depth.
-	fread(&tgaFile->bitCount, sizeof(unsigned char), 1, filePtr);
-
-	// Read one byte of data we don't need.
-	fread(&ucharBad, sizeof(unsigned char), 1, filePtr);
-
-	// Color mode -> 3 = BGR, 4 = BGRA.
-	colorMode = tgaFile->bitCount / 8;
-	imageSize = tgaFile->imageWidth * tgaFile->imageHeight * colorMode;
-
-	// Allocate memory for the image data.
-	tgaFile->imageData = (unsigned char*)malloc(sizeof(unsigned char)*imageSize);
-
-	// Read the image data.
-	fread(tgaFile->imageData, sizeof(unsigned char), imageSize, filePtr);
-
-	// Change from BGR to RGB so OpenGL can read the image data.
-	for (int imageIdx = 0; imageIdx < imageSize; imageIdx += colorMode)
-	{
-		colorSwap = tgaFile->imageData[imageIdx];
-		tgaFile->imageData[imageIdx] = tgaFile->imageData[imageIdx + 2];
-		tgaFile->imageData[imageIdx + 2] = colorSwap;
-	}
-
-	fclose(filePtr);
-	return true;
-}
-
-
-inline void create_Texture(unsigned int &texture)
-{
-	// texture 1
-	// ---------
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	// set the texture wrapping parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// set texture filtering parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	// load image, create texture and generate mipmaps
-	int width, height, nrChannels;
-	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-	unsigned char *data = stbi_load("Resourcen/HQ_Map.png", &width, &height, &nrChannels, 0);
+	int width, height, nrComponents;
+	unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
 	if (data)
 	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		GLenum format;
+		if (nrComponents == 1)
+			format = GL_RED;
+		else if (nrComponents == 3)
+			format = GL_RGB;
+		else if (nrComponents == 4)
+			format = GL_RGBA;
+
+		glBindTexture(GL_TEXTURE_2D, id);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
-		std::cout << "Failed to load texture" << std::endl;
-	}
-	stbi_image_free(data);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		stbi_image_free(data);
+	};
 }
 
 inline void RenderText_aktivieren()
@@ -292,14 +217,14 @@ class Missionsdaten : public Koordinaten
 	string Missionsname;
 	string Missionstyp;
 	
-	int Belohnung_Ren, Belohnung_Exotic;
+	int Belohnung_Ren;
 public:
 	string Missionsbeschreibung;
 	Missionsdaten(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren, int Exotics) : Koordinaten(X, Y),
-		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren), Belohnung_Exotic(Exotics)
+		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
 	{};
 	Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren, int Exotics) : Koordinaten(cords.getX(), cords.getY()),
-		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren), Belohnung_Exotic(Exotics)
+		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
 	{};
 
 	operator Koordinaten()
@@ -322,10 +247,6 @@ public:
 	int getRen()
 	{
 		return Belohnung_Ren;
-	}
-	int getExotics()
-	{
-		return Belohnung_Exotic;
 	}
 };
 
@@ -385,9 +306,9 @@ public:
 			cout << "One row in " + CAVEENTRACE + " inserted."<< endl;
 	}
 	/* Funktion zum Einfügen der Missiontexte - Es wird ein X/Y gespeichert um Mögliche unterschiedliche Missionsziele zu speichern */
-	void Daten_Einfügen(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0, int Exotics = 0)
+	void Daten_Einfügen(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0)
 	{
-		pstmt = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren, Exotics) VALUES(?,?,?,?,?,?,?);");
+		pstmt = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren, Exotics) VALUES(?,?,?,?,?,?);");
 
 		pstmt->setInt(1, X);
 		pstmt->setInt(2, Y);
@@ -395,7 +316,6 @@ public:
 		pstmt->setString(4, Missionstyp);
 		pstmt->setString(5, Missionsbeschreibung);
 		pstmt->setInt(6, Ren);
-		pstmt->setInt(7, Exotics);
 		
 		pstmt->execute();
 		cout << "One row in " + MISSIONEN + " inserted." << endl;
@@ -408,7 +328,7 @@ public:
 
 		Daten_Einfügen(1, 1, "Brueckenkopf", "Aufklaerung", "Aufklaerung Waldzone - Landung");
 
-		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Landung", 100);
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Landung", 67 /* Versicherung  Zwangsaktiv*/);
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 1");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 2");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 3");
@@ -419,12 +339,6 @@ public:
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Gamma.");
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte das Uplink am Standort Delta ein.");
 
-		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Landung", 125, 10);
-		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte die Geostation am Standort Alpha.");
-		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte die Geostation am Standort Beta.");
-		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte die Geostation am Standort Gamma.");
-		Daten_Einfügen(1, 1, "Grabstein", "Hardcore Geo Forschung", "Setzte das Uplink am Standort Delta ein.");
-
 		Daten_Einfügen(1, 1, "Argos", "Erkundung", "Erkunde Icarus - Landung");
 
 		Daten_Einfügen(1, 1, "Landwirtschaft", "Vorratslager", "Vorraete Wald", 250);
@@ -434,14 +348,6 @@ public:
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Landung", 125);
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Folge der Spur des Raubtiers");
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Toete das Raubtier");
-
-		Daten_Einfügen(1, 1, "Todesliste", "Schwere Vernichtung", "Landung", 225);
-		Daten_Einfügen(1, 1, "Todesliste", "Schwere Vernichtung", "Folge der Spur des Raubtiers");
-		Daten_Einfügen(1, 1, "Todesliste", "Schwere Vernichtung", "Toete das Raubtier");
-
-		Daten_Einfügen(1, 1, "Todesliste", "Hardcore Vernichtung", "Landung", 225, 50);
-		Daten_Einfügen(1, 1, "Todesliste", "Hardcore Vernichtung", "Folge der Spur des Raubtiers");
-		Daten_Einfügen(1, 1, "Todesliste", "Hardcore Vernichtung", "Toete das Raubtier");
 
 		Daten_Einfügen(1, 1, "Probelauf", "Expedition", "Expedition Canyons", 125);
 
@@ -456,23 +362,19 @@ public:
 
 		Daten_Einfügen(1, 1, "Sandige Bruecken", "Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.", 300);
 
-		Daten_Einfügen(1, 1, "Sandige Bruecken", "Hardcore Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch.", 450, 50);
-
 		Daten_Einfügen(1, 1, "Sandsturm", "Erkundung", "Erkunde Icarus.");
 
 		Daten_Einfügen(1, 1, "Wasserwaage", "Untersuchung", "Landung", 150);
 		Daten_Einfügen(1, 1, "Wasserwaage", "Untersuchung", "Uebertrage Geodaten vom Standort Alpha.");
 		Daten_Einfügen(1, 1, "Wasserwaage", "Untersuchung", "Uebertrage Geodaten vom Standort Zulu.");
 
-		Daten_Einfügen(1, 1, "Wasserwaage", "Hardcore Untersuchung", "Landung", 350,50);
-		Daten_Einfügen(1, 1, "Wasserwaage", "Hardcore Untersuchung", "Uebertrage Geodaten vom Standort Alpha.");
-		Daten_Einfügen(1, 1, "Wasserwaage", "Hardcore Untersuchung", "Uebertrage Geodaten vom Standort Zulu.");
+		Daten_Einfügen(1, 1, "Preservation", "Stockpile", "Landung", 350);
 
-		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Landung", 150);
-		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Sammle die verlorene gegangenen Komponenten des Prototyps.");
-		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Untersuche Absturzstelle Alpha");
-		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Untersuche Absturzstelle Bravo");
-		Daten_Einfügen(1, 1, "Feldtest", "Erholung", "Untersuche Absturzstelle Delta");
+		Daten_Einfügen(1, 1, "Feld Test", "Erholung", "Landung", 150);
+		Daten_Einfügen(1, 1, "Feld Test", "Erholung", "Sammle die verlorene gegangenen Komponenten des Prototyps.");
+		Daten_Einfügen(1, 1, "Feld Test", "Erholung", "Untersuche Absturzstelle Alpha");
+		Daten_Einfügen(1, 1, "Feld Test", "Erholung", "Untersuche Absturzstelle Bravo");
+		Daten_Einfügen(1, 1, "Feld Test", "Erholung", "Untersuche Absturzstelle Delta");
 
 		Daten_Einfügen(1, 1, "Massiv Metall", "Schwere Vorraete", "Landung", 350);
 		Daten_Einfügen(1, 1, "Massiv Metall", "Schwere Vorraete", "Aufgelistete Ressourcen in Frachtkapsel ablegen.");
@@ -488,6 +390,66 @@ public:
 		Daten_Einfügen(1, 1, "Tiefe Adern", "Extraktion", "Lokalesiere Exotische Materie.");
 		Daten_Einfügen(1, 1, "Tiefe Adern", "Extraktion", "Baue Exotische Materie ab.");
 		Daten_Einfügen(1, 1, "Tiefe Adern", "Extraktion", "Schaff edie Exotische Materie zum Landeschiff Lager.");
+
+		Daten_Einfügen(1, 1, "Scheinwerfer", "Scan", "Landung", 150);
+		Daten_Einfügen(1, 1, "Scheinwerfer", "Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Scheinwerfer", "Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Scheinwerfer", "Scan", "Scanne Ort 3");
+		
+		Daten_Einfügen(1, 1, "Hochseilgarten", "Erkundung", "Erkunde Icarus");
+
+		Daten_Einfügen(1, 1, "Zufluss", "Aufbau", "Landung", 275);
+		Daten_Einfügen(1, 1, "Zufluss", "Aufbau", "Erreiche den markierten Ort.");
+		Daten_Einfügen(1, 1, "Zufluss", "Aufbau", "Errichte eine Kaserne.");
+
+		Daten_Einfügen(1, 1, "Zerbrochene Pfeile", "Erholung", "Landung", 150);
+		Daten_Einfügen(1, 1, "Zerbrochene Pfeile", "Erholung", "Beschaffe den Biosprengkopf von Absturzstelle Omega.");
+		Daten_Einfügen(1, 1, "Zerbrochene Pfeile", "Erholung", "Beschaffe den Biosprengkopf von Absturzstelle Psi.");
+		Daten_Einfügen(1, 1, "Zerbrochene Pfeile", "Erholung", "Beschaffe den Biosprengkopf von Absturzstelle Chi.");
+
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Landung", 400);
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Lokalesiere Exotische Materie.");
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Baue ein exotisches Materievorkommen vollstaeding ab.");
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Kehre mit exotischer Materie in den Orbit zurueck.");
+
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Landung", 250);
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Stelle Anbauausruestung her.");
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Errichte Anbauflaechen in einem Gewaechshaus(Glas-Gebaeude).");
+		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Deponiere Aufgesitete (In Anbauflaechen) angebaute Ressourcen in der Frachtkapsel.");
+
+		Daten_Einfügen(1, 1, "Einfall", "Scan", "Landung", 200);
+		Daten_Einfügen(1, 1, "Einfall", "Scan", "Scanne Ort 1");
+		Daten_Einfügen(1, 1, "Einfall", "Scan", "Scanne Ort 2");
+		Daten_Einfügen(1, 1, "Einfall", "Scan", "Scanne Ort 3");
+
+		Daten_Einfügen(1, 1, "Aufstocken", "Vorraete", "Landung", 600);
+		Daten_Einfügen(1, 1, "Aufstocken", "Vorraete", "Aufgelistete Ressourcen in Frachtkapsel ablegen.");
+
+		Daten_Einfügen(1, 1, "Edelweiss", "Erkundung", "Erkunde Icarus");
+
+		Daten_Einfügen(1, 1, "Erhebung", "Bio-Forschung", "Landung", 200);
+		Daten_Einfügen(1, 1, "Erhebung", "Bio-Forschung", "Finde und untersuche die ungewoehnliche Flora.");
+		Daten_Einfügen(1, 1, "Einfall", "Bio-Forschung", "Finde die Daten zur Geode und grabe Sie aus.");
+
+		Daten_Einfügen(1, 1, "Lawine", "Expedition", "Landung", 600);
+		Daten_Einfügen(1, 1, "Lawine", "Expedition", "Erreiche den Aktispass(M)");
+		Daten_Einfügen(1, 1, "Lawine", "Expedition", "Kundschafte das auf der Karte markierte Gebiet aus(M).");
+
+		Daten_Einfügen(1, 1, "Feuergang", "Lieferung", "Landung", 250);
+		Daten_Einfügen(1, 1, "Feuergang", "Lieferung", "Terraforming Fechette abrufen,");
+		Daten_Einfügen(1, 1, "Feuergang", "Lieferung", "Liefern sie die Flechette an ihr Dropship.");
+
+		Daten_Einfügen(1, 1, "Drecksarbeit", "Vernichtung", "Landung", 250);
+		Daten_Einfügen(1, 1, "Drecksarbeit", "Vernichtung", "Suche nach Tierspuren.");
+		Daten_Einfügen(1, 1, "Drecksarbeit", "Vernichtung", "Suche nach der Hoehle des Tiers");
+		Daten_Einfügen(1, 1, "Drecksarbeit", "Vernichtung", "Toete das Raubtier");
+
+		Daten_Einfügen(1, 1, "Gebuendelt", "Verlaengerte Untersuchung", "Landung", 300);
+		Daten_Einfügen(1, 1, "Gebuendelt", "Verlaengerte Untersuchung", "Fuehre eine Langzeit Untersuchung durch");
+
+		Daten_Einfügen(1, 1, "Concealment", "Recovery", "Landung", 400);
+		Daten_Einfügen(1, 1, "Concealment", "Recovery", "Zerstoere Arachnideneidaemmungseinheit 1");
+		Daten_Einfügen(1, 1, "Concealment", "Recovery", "Zerstoere Arachnideneidaemmungseinheit 2");
 
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Landung", 250);
 		Daten_Einfügen(1, 1, "Schneeblind", "Scan", "Scanne Ort 1");
@@ -505,6 +467,21 @@ public:
 		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 1");
 		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 2");
 		Daten_Einfügen(1, 1, "Sieben Saulen", "Scan", "Scanne Ort 3");
+
+		Daten_Einfügen(1, 1, "Bonze", "Vorraete", "Ladnung");
+		Daten_Einfügen(1, 1, "Nachtache", "Geo-Forschung", "Ladnung");
+		Daten_Einfügen(1, 1, "Gelobtes Land", "Erkundung", "Ladnung");
+		Daten_Einfügen(1, 1, "Abstauben", "Vernichtung", "Ladnung");
+		Daten_Einfügen(1, 1, "Sandkasten", "Aufbau", "Ladnung");
+		Daten_Einfügen(1, 1, "Schneeunfall", "Erholung", "Ladnung");
+		Daten_Einfügen(1, 1, "Saeuberung", "Vernichtung", "Ladnung");
+		Daten_Einfügen(1, 1, "Erweiterte Bestellung", "Vorraete", "Ladnung");
+		Daten_Einfügen(1, 1, "Tundra", "Erkundung", "Ladnung");
+		Daten_Einfügen(1, 1, "Station zu Station", "Verlaengerte Untersuchung", "Ladnung");
+		Daten_Einfügen(1, 1, "Reisende", "Erholung", "Ladnung");
+		Daten_Einfügen(1, 1, "Pilgerreise", "Erkundung", "Ladnung");
+		Daten_Einfügen(1, 1, "Kryogen", "Forschung", "Ladnung");
+		Daten_Einfügen(1, 1, "Ausgegraben", "Forschung", "Ladnung");
 	}
 
 	/* Basisfunktion sofern noch keine Tabelle erstellt worden ist */
@@ -518,7 +495,7 @@ public:
 
 		stmt->execute("DROP TABLE IF EXISTS " + MISSIONEN);
 			cout << "Finished dropping table " + MISSIONEN + " (if existed)" << endl;
-		stmt->execute("CREATE TABLE " + MISSIONEN + " (id serial PRIMARY KEY, Position_X INTEGER, Position_Y INTEGER, Missionsname VARCHAR(50), Missionstyp VARCHAR(50), Missionsbeschreibung VARCHAR(150), Ren INTEGER, Exotics INTEGER);");
+		stmt->execute("CREATE TABLE " + MISSIONEN + " (id serial PRIMARY KEY, Position_X INTEGER, Position_Y INTEGER, Missionsname VARCHAR(50), Missionstyp VARCHAR(50), Missionsbeschreibung VARCHAR(150), Ren INTEGER);");
 			cout << "Finished creating table" + MISSIONEN << endl;
 
 		delete stmt;
@@ -556,14 +533,9 @@ public:
 
 		for (unsigned int i = 0; i < MISSIONSDATEN.size(); i++)
 		{
-			//string text = MISSIONSDATEN[i].getBeschreibung();
-			//int cX = MISSIONSDATEN[i].getX();
-			//printf("Reading from table Mission=(%d, %d, %d, %s: %s, %s, %d, %d )\n", i + 1, MISSIONSDATEN[i].getX(), MISSIONSDATEN[i].getY(), MISSIONSDATEN[i].getName(), 
-			//	MISSIONSDATEN[i].getTyp(),MISSIONSDATEN[i].getBeschreibung(), MISSIONSDATEN[i].getRen(), MISSIONSDATEN[i].getExotics());
-
 			std::cout << "Reading from table Mission = (" << i + 1 << ", " << MISSIONSDATEN[i].getX() << ", " << MISSIONSDATEN[i].getY()
 				<< ", " << MISSIONSDATEN[i].getName() << ": " << MISSIONSDATEN[i].getTyp(); 
-			cout << ", " << MISSIONSDATEN[i].getBeschreibung() << ", " << MISSIONSDATEN[i].getRen() << ", " << MISSIONSDATEN[i].getExotics() << ")" << endl;
+			cout << ", " << MISSIONSDATEN[i].getBeschreibung() << ", " << MISSIONSDATEN[i].getRen() << ")" << endl;
 		}
 	}
 
@@ -603,7 +575,7 @@ public:
 			
 			cout << "Die Aufgabe ist: \"" << result->getString(6).c_str() << "\"";
 			if (result->getInt(7) != 0)
-				cout << " und als Belohnungen gibt es " << result->getInt(7) << " Ren und " << result->getInt(8) << " Exotics.";
+				cout << " und als Belohnungen gibt es " << result->getInt(7) << " Ren ";
 			cout << endl;
 		}		
 	}
@@ -715,6 +687,8 @@ public:
 	}
 };
 
+uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen;
+
 int main()
 {
 	PRIVAT_MYSQL SQL;
@@ -770,12 +744,12 @@ int main()
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
-	//ImGui::StyleColorsClassic();
+	ImGui::StyleColorsClassic();
 
 	// Setup Platform/Renderer backends
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -786,11 +760,10 @@ int main()
 
 	Missionsliste = SQL.Daten_Lesen_Missionsname();
 
-	TGAFILE Roter_Tropfen,Blauer_Tropfen,Gelber_Tropfen,Schwarzer_Tropfen;
-	
-	//char* Tropfen{ "Resourcen/Roter Tropfen.tga" };
-
-	//LoadTGAFile(, &Roter_Tropfen);
+	loadTexture(Roter_Tropfen, "Resourcen/Roter_Tropfen.tga");
+	loadTexture(Blauer_Tropfen, "Resourcen/Blauer_Tropfen.tga");
+	loadTexture(Gelber_Tropfen, "Resourcen/Gelber_Tropfen.tga");
+	loadTexture(Schwarzer_Tropfen, "Resourcen/Schwarzer_Tropfen.tga");
 
 	// configure VAO/VBO for texture quads
 	// -----------------------------------
@@ -843,8 +816,8 @@ int main()
 	// -------------------------
 	unsigned int texture1, texture2;
 
-	create_Texture(texture1);
-	create_Texture(texture2);
+	loadTexture(texture1, "Resourcen/HQ_Map.png");
+	loadTexture(texture2, "Resourcen/HQ_Map.png");
 
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
 	// -------------------------------------------------------------------------------------------
@@ -852,7 +825,7 @@ int main()
 	ourShader.setInt("texture1", 0);
 	ourShader.setInt("texture2", 1);
 
-	static bool EInfügen = false;
+	static bool Einfügen = false;
 	static bool Updaten = false;
 	static bool Löschen = false;
 	static bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
@@ -895,8 +868,8 @@ int main()
 				SQL.Tabelle_erstellen();
 
 			if (ImGui::Button("SQL Einfuegen"))                            
-				EInfügen = !EInfügen;
-			if (EInfügen)
+				Einfügen = !Einfügen;
+			if (Einfügen)
 			{
 				if (!Mission_Caveentrace)
 				{
@@ -962,7 +935,7 @@ int main()
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(1,1, Missionname, Missionstyp, Missionsbeschreibung, ren, exo); EInfügen = false;
+						SQL.Daten_Einfügen(1,1, Missionname, Missionstyp, Missionsbeschreibung, ren); Einfügen = false;
 					}
 				}
 				else
@@ -991,7 +964,7 @@ int main()
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(ix,iy,str0,ic); EInfügen = false;
+						SQL.Daten_Einfügen(ix,iy,str0,ic); Einfügen = false;
 					}
 				}
 			}
@@ -1092,15 +1065,18 @@ int main()
 		// ------
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+		
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		// bind textures on corresponding texture units
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture1);
+		glBindTexture(GL_TEXTURE_2D, texture1); // texture1
 		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, texture2);
+		glBindTexture(GL_TEXTURE_2D, texture2); // texture2
 
 		//glClear(GL_COLOR_BUFFER_BIT);
-		
+
 		// create transformations
 		glm::mat4 transform = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
 		transform = glm::translate(transform, glm::vec3(-0.25f, 0.0f, 0.0f));
@@ -1108,16 +1084,16 @@ int main()
 		transform = glm::scale(transform, glm::vec3(1.5, 2.f, 1.0f));
 
 		// get matrix's uniform location and set matrix
-		ourShader.use();
+		ourShader.use();				
 		unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
 		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+
 
 		// render container
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
 
-	
 		RenderText_aktivieren();
 
 		RenderText(shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));

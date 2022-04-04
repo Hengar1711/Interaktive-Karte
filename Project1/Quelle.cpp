@@ -63,9 +63,34 @@
 			Mapping eines 2ten Screen Bereichs aus das gezeichnete Viereck.
 			Zeichnen der Markierungen mithilfe von Alpha Kanal und kleinen Vierecken wo die "Spitze" (Untere Mitte) auf dem Zielpunkt zeigt.
 			Aktueller Weg: Zeichne die Plane als Semi "3d Objekt" - Deaktivere die Kamera Drehung - Begrenze die Bewegung auf die entsprechenden Kartenränder
+			Erstellen der Hintergrund Karte: Done
+			Die Grafik mit Alpha Kanal laden: Done
+			Die 2D Karte als "semi 3D" erstellen: progress
+			die bewegung auf den kartenbereich beschränken: open
+			Kleine Markierungssteine mit Tropfen erstellen: open
+			Diese Markierungsteine Verteilen: open
+			Die markierungsteine mithilfe der datenbankpositionen laden: open
+			Die markierungsteine im fenster verschieben können: offen
+			neue markeirungsteine setzten im fenster: offen
+
 
 
 */
+
+class window
+{
+public:
+	int x = 800;
+	int y = 600;
+	double mousex, mousey;
+};
+
+class Simple_Cam
+{
+public:
+	float X = 0, Y = 0, Z = 0;
+	double xoffset, yoffset;
+} Cam;
 
 #ifndef DEFINITIONEN
 	#define DEFINITIONEN
@@ -96,10 +121,6 @@
 #ifndef BASICDECLARATIONEN
 #define BASICDECLARATIONEN
 
-	// settings
-	const unsigned int SCR_WIDTH = 800;
-	const unsigned int SCR_HEIGHT = 600;
-
 	//for demonstration only. never save your password in the code!
 	const std::string server = "tcp://127.0.0.1:3306";
 	const std::string username = "Hengar";
@@ -118,7 +139,7 @@
 
 	using namespace std;
 
-	
+	window Fensterdaten;
 	
 	vector<pair<string,string>> Missionsliste;
 	string Missionsnamensuche;
@@ -133,6 +154,7 @@ inline void RenderText(Shader &shader, std::string text, float x, float y, float
 inline void loadTexture(unsigned int &id,char const * path)
 {
 	int width, height, nrComponents;
+	stbi_set_flip_vertically_on_load(true);
 	unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
 	if (data)
 	{
@@ -689,6 +711,18 @@ public:
 
 uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen;
 
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+
+
+	Cam.xoffset = xoffset;
+	Cam.yoffset = yoffset;
+	
+	Cam.Z += Cam.yoffset;
+
+}
+
+
 int main()
 {
 	PRIVAT_MYSQL SQL;
@@ -708,7 +742,7 @@ int main()
 
 	// glfw window creation
 	// --------------------
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(Fensterdaten.x, Fensterdaten.y, "LearnOpenGL", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -717,6 +751,7 @@ int main()
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetScrollCallback(window, scroll_callback);
 
 	// glad: load all OpenGL function pointers
 	// ---------------------------------------
@@ -733,9 +768,7 @@ int main()
 	// compile and setup the shader
 	// ----------------------------
 	Shader shader("text.vs", "text.fs");
-	glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
 	shader.use();
-	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
 	Schrift.Initialisieren();
 
@@ -782,10 +815,10 @@ int main()
 	// ------------------------------------------------------------------
 	float vertices[] = {
 		// positions          // texture coords
-		0.5f,  0.5f, 0.0f,   1.0f, 1.0f, // top right
-		0.5f, -0.5f, 0.0f,   1.0f, 0.0f, // bottom right
-		-0.5f, -0.5f, 0.0f,   0.0f, 0.0f, // bottom left
-		-0.5f,  0.5f, 0.0f,   0.0f, 1.0f  // top left 
+		10.5f,  10.5f, 0.0f,   1.0f, 1.0f, // top right
+		10.5f, -10.5f, 0.0f,   1.0f, 0.0f, // bottom right
+		-10.5f, -10.5f, 0.0f,   0.0f, 0.0f, // bottom left
+		-10.5f,  10.5f, 0.0f,   0.0f, 1.0f  // top left 
 	};
 	unsigned int indices[] = {
 		0, 1, 3, // first triangle
@@ -831,14 +864,40 @@ int main()
 	static bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
 	static bool Mission_Ausgewählt = false;
 
+	float radians = 0.0;
+
 	// render loop
 	// -----------
 	while (!glfwWindowShouldClose(window))
-	{		
+	{
+		{
 		// input
 		// -----
 		processInput(window);
-		
+
+		glfwGetCursorPos(window,&Fensterdaten.mousex,&Fensterdaten.mousey);
+
+		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+		{
+
+		}
+
+		if (glfwGetKey(window,GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+			Cam.Y -= 0.001;
+		}
+		// Move backward
+		if (glfwGetKey(window,GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+			Cam.Y += 0.001;
+		}
+		// Strafe right
+		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			Cam.X -= 0.001;
+		}
+		// Strafe left
+		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			Cam.X += 0.001;
+		}
+
 		// Start the Dear ImGui frame
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -849,8 +908,8 @@ int main()
 			ImGui::ShowDemoWindow(&show_demo_window);
 
 		// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
-		{			
-			ImGui::Begin("Demo Interface Interaktive Map");                          // Create a window called "Hello, world!" and append into it.
+		{
+			ImGui::Begin("Interface Interaktive Map");                          // Create a window called "Hello, world!" and append into it.
 
 			if (Mission_Ausgewählt)
 			{
@@ -863,11 +922,11 @@ int main()
 
 			ImGui::Text("Dies ist die Datensteuerung fuer\ndie Interaktive Karte.");               // Display some text (you can use a format strings too)
 			ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-						
-			if (ImGui::Button("SQL Tabelle"))                           
+
+			if (ImGui::Button("SQL Tabelle"))
 				SQL.Tabelle_erstellen();
 
-			if (ImGui::Button("SQL Einfuegen"))                            
+			if (ImGui::Button("SQL Einfuegen"))
 				Einfügen = !Einfügen;
 			if (Einfügen)
 			{
@@ -880,7 +939,7 @@ int main()
 					if (ImGui::Button("Einfuegen ist Caveentrace"))
 						Mission_Caveentrace = false;
 
-				if(!Mission_Caveentrace)
+				if (!Mission_Caveentrace)
 				{
 					static char Missionname[128] = "Hello, world!";
 					ImGui::InputText("Missionsname", Missionname, IM_ARRAYSIZE(Missionname));
@@ -935,7 +994,7 @@ int main()
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(1,1, Missionname, Missionstyp, Missionsbeschreibung, ren); Einfügen = false;
+						SQL.Daten_Einfügen(1, 1, Missionname, Missionstyp, Missionsbeschreibung, ren); Einfügen = false;
 					}
 				}
 				else
@@ -964,35 +1023,35 @@ int main()
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(ix,iy,str0,ic); Einfügen = false;
+						SQL.Daten_Einfügen(ix, iy, str0, ic); Einfügen = false;
 					}
 				}
 			}
 
-			if (ImGui::Button("SQL Lesen"))                            
+			if (ImGui::Button("SQL Lesen"))
 				SQL.Daten_Lesen();
 
 			if (ImGui::Button("SQL Updaten"))
 				Updaten = !Updaten;
 			if (Updaten)
-			{			
-					static char str1[128] = "orange";
-					ImGui::InputText("input text", str1, IM_ARRAYSIZE(str1));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n\n"
-						"PROGRAMMER:\n"
-						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-						"in imgui_demo.cpp).");
+			{
+				static char str1[128] = "orange";
+				ImGui::InputText("input text", str1, IM_ARRAYSIZE(str1));
+				ImGui::SameLine(); HelpMarker(
+					"USER:\n"
+					"Hold SHIFT or use mouse to select text.\n"
+					"CTRL+Left/Right to word jump.\n"
+					"CTRL+A or double-click to select all.\n"
+					"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+					"CTRL+Z,CTRL+Y undo/redo.\n"
+					"ESCAPE to revert.\n\n"
+					"PROGRAMMER:\n"
+					"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
+					"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
+					"in imgui_demo.cpp).");
 
-					static int i1 = 1000;
-					ImGui::InputInt("input int", &i1);
+				static int i1 = 1000;
+				ImGui::InputInt("input int", &i1);
 
 				if (ImGui::Button("Updaten"))
 				{
@@ -1000,7 +1059,7 @@ int main()
 					Updaten = false;
 				}
 			}
-				
+
 			if (ImGui::Button("SQL Loeschen"))
 				Löschen = !Löschen;
 			if (Löschen)
@@ -1024,19 +1083,19 @@ int main()
 				{
 					SQL.Daten_Löschen(string(str2));
 					Löschen = false;
-				}					
+				}
 			}
 
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 			// Liste der Missionen
-			if(!Mission_Ausgewählt) 
+			if (!Mission_Ausgewählt)
 			{
 				ImGuiWindowFlags window_flags = ImGuiWindowFlags_None;
 				ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
 				ImGui::BeginChild("ChildR", ImVec2(0, 260), true, window_flags);
 				if (ImGui::BeginTable("split", 1, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings))
-				{					
+				{
 					for (int i = 0; i < Missionsliste.size(); i++)
 					{
 						//char buf[32];
@@ -1048,18 +1107,19 @@ int main()
 							SQL.Daten_Lesen(Missionsliste[i]);
 							Mission_Ausgewählt = true;
 						}
-							
+
 					}
 					ImGui::EndTable();
 				}
 				ImGui::EndChild();
 				ImGui::PopStyleVar();
-				}
+			}
 			ImGui::End();
 		}
 
 		// Rendering
 		ImGui::Render();
+		}
 
 		// render
 		// ------
@@ -1073,27 +1133,36 @@ int main()
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture1); // texture1
 		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, texture2); // texture2
-
-		//glClear(GL_COLOR_BUFFER_BIT);
-
-		// create transformations
-		glm::mat4 transform = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
-		transform = glm::translate(transform, glm::vec3(-0.25f, 0.0f, 0.0f));
-		//transform = glm::rotate(transform, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
-		transform = glm::scale(transform, glm::vec3(1.5, 2.f, 1.0f));
+		glBindTexture(GL_TEXTURE_2D, Roter_Tropfen); // texture2
 
 		// get matrix's uniform location and set matrix
 		ourShader.use();				
-		unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+		
+		// create transformations
+		glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 projection = glm::mat4(1.0f);
+		//model = glm::rotate(model, glm::radians(radians += float(0.1)), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::translate(model, glm::vec3(1.0 + Cam.X, 1.0f + Cam.Y, Cam.Z));
+		//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+
+		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.x / (float)Fensterdaten.y, 0.1f, 100.0f);
+		// retrieve the matrix uniform locations
+		unsigned int modelLoc = glGetUniformLocation(ourShader.ID, "model");
+		unsigned int viewLoc = glGetUniformLocation(ourShader.ID, "view");
+		// pass them to the shaders (3 different ways)
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
+		// note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
+		ourShader.setMat4("projection", projection);
 
 
 		// render container
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-
+		{
 		RenderText_aktivieren();
 
 		RenderText(shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
@@ -1102,9 +1171,7 @@ int main()
 		RenderText_deaktivieren();
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-		
-
-		
+		}	
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		// -------------------------------------------------------------------------------
@@ -1139,6 +1206,8 @@ inline void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	// make sure the viewport matches the new window dimensions; note that width and 
 	// height will be significantly larger than specified on retina displays.
 	glViewport(0, 0, width, height);
+	Fensterdaten.x = width;
+	Fensterdaten.y = height;
 }
 
 // render line of text

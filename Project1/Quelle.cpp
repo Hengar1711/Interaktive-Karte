@@ -220,10 +220,10 @@ class Missionsdaten : public Koordinaten
 	int Belohnung_Ren;
 public:
 	string Missionsbeschreibung;
-	Missionsdaten(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren, int Exotics) : Koordinaten(X, Y),
+	Missionsdaten(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : Koordinaten(X, Y),
 		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
 	{};
-	Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren, int Exotics) : Koordinaten(cords.getX(), cords.getY()),
+	Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : Koordinaten(cords.getX(), cords.getY()),
 		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
 	{};
 
@@ -308,7 +308,7 @@ public:
 	/* Funktion zum Einfügen der Missiontexte - Es wird ein X/Y gespeichert um Mögliche unterschiedliche Missionsziele zu speichern */
 	void Daten_Einfügen(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0)
 	{
-		pstmt = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren, Exotics) VALUES(?,?,?,?,?,?);");
+		pstmt = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren) VALUES(?,?,?,?,?,?);");
 
 		pstmt->setInt(1, X);
 		pstmt->setInt(2, Y);
@@ -528,14 +528,14 @@ public:
 		while (result->next())
 		{
 			MISSIONSDATEN.push_back(Missionsdaten(result->getInt(2), result->getInt(3), result->getString(4).c_str(), result->getString(5).c_str(), 
-				result->getString(6).c_str(), result->getInt(7), result->getInt(8)));
+				result->getString(6).c_str(), result->getInt(7)));
 		}
 
 		for (unsigned int i = 0; i < MISSIONSDATEN.size(); i++)
 		{
 			std::cout << "Reading from table Mission = (" << i + 1 << ", " << MISSIONSDATEN[i].getX() << ", " << MISSIONSDATEN[i].getY()
 				<< ", " << MISSIONSDATEN[i].getName() << ": " << MISSIONSDATEN[i].getTyp(); 
-			cout << ", " << MISSIONSDATEN[i].getBeschreibung() << ", " << MISSIONSDATEN[i].getRen() << ")" << endl;
+			cout << ", " << MISSIONSDATEN[i].getBeschreibung() << ")" << endl;
 		}
 	}
 

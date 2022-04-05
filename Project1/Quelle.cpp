@@ -15,7 +15,6 @@
 	#include <map>
 	#include <string>
 	#include <vector>
-	//#include <pair>
 
 	#include <glad/glad.h>
 	#include <GLFW/glfw3.h>
@@ -42,6 +41,8 @@
 	#include <cppconn/driver.h>
 	#include <cppconn/exception.h>
 	#include <cppconn/prepared_statement.h>
+
+	using namespace std;
 #endif
 
 #ifdef _MSC_VER
@@ -65,8 +66,8 @@
 			Aktueller Weg: Zeichne die Plane als Semi "3d Objekt" - Deaktivere die Kamera Drehung - Begrenze die Bewegung auf die entsprechenden Kartenränder
 			Erstellen der Hintergrund Karte: Done
 			Die Grafik mit Alpha Kanal laden: Done
-			Die 2D Karte als "semi 3D" erstellen: progress
-			die bewegung auf den kartenbereich beschränken: open
+			Die 2D Karte als "semi 3D" erstellen: Done
+			die bewegung auf den kartenbereich beschränken: progress
 			Kleine Markierungssteine mit Tropfen erstellen: open
 			Diese Markierungsteine Verteilen: open
 			Die markierungsteine mithilfe der datenbankpositionen laden: open
@@ -89,12 +90,11 @@ class Simple_Cam
 {
 public:
 	float X = 0, Y = 0, Z = 0;
-	double xoffset, yoffset;
 } Cam;
 
 #ifndef DEFINITIONEN
 	#define DEFINITIONEN
-	#define uint unsigned int
+	typedef unsigned int uint;
 
 	#define MISSIONSNAME string("Missionsname")
 	#define MISSIONSTYP string("Missionstyp")
@@ -134,22 +134,67 @@ public:
 		glm::ivec2   Bearing;   // Offset from baseline to left/top of glyph
 		unsigned int Advance;   // Horizontal offset to advance to next glyph
 	};
-	std::map<GLchar, Character> Characters;
-	unsigned int VAO, VBO;
+	map<GLchar, Character> Characters;
 
-	using namespace std;
+	
 
 	window Fensterdaten;
 	
 	vector<pair<string,string>> Missionsliste;
-	string Missionsnamensuche;
+	string Missionsnamensuche;	
 
-	
+	uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen;
+
 #endif
 
-inline void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-inline void processInput(GLFWwindow *window);
-inline void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color);
+// Immer wenn die Fenstergröße geändert wird, führe diesen Callback aus.
+inline void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	// make sure the viewport matches the new window dimensions; note that width and 
+	// height will be significantly larger than specified on retina displays.
+	glViewport(0, 0, width, height);
+	Fensterdaten.x = width;
+	Fensterdaten.y = height;
+}
+
+// Immer wenn das Mausrad gedreht wird, führe diesen Callback aus.
+inline void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	Cam.Z += yoffset;
+};
+
+// Verarbeite hier sämtlichen Input, zum trennen von Renderdaten und Tastertur
+inline void processInput(GLFWwindow *window)
+{
+	// Die Default Steuerung zum Schließen des Fensters
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
+
+
+	glfwGetCursorPos(window, &Fensterdaten.mousex, &Fensterdaten.mousey);
+	// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		if (Cam.Y > -20.0)
+			Cam.Y -= 0.001;
+	}
+	// Die Steuerung um sich auf der Karte nach Unten zu bewegen.
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		if (Cam.Y < 20.0)
+
+			Cam.Y += 0.001;
+	}
+	// Die Steuerung um sich auf der Karte nach Rechts zu bewegen.
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+		if (Cam.X > -20.0)
+			Cam.X -= 0.001;
+	}
+	// Die Steuerung um sich auf der Karte nach Links zu bewegen.
+	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+		if (Cam.X < 20.0)
+			Cam.X += 0.001;
+	}
+
+}
 
 inline void loadTexture(unsigned int &id,char const * path)
 {
@@ -177,23 +222,9 @@ inline void loadTexture(unsigned int &id,char const * path)
 
 		stbi_image_free(data);
 	};
-}
-
-inline void RenderText_aktivieren()
-{
-	// OpenGL state
-	// ------------
-	glEnable(GL_CULL_FACE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-};
-inline void RenderText_deaktivieren()
-{
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_BLEND);
 };
 
-static void HelpMarker(const char* desc)
+inline void HelpMarker(const char* desc)
 {
 	ImGui::TextDisabled("(?)");
 	if (ImGui::IsItemHovered())
@@ -204,7 +235,7 @@ static void HelpMarker(const char* desc)
 		ImGui::PopTextWrapPos();
 		ImGui::EndTooltip();
 	}
-}
+};
 
 class Koordinaten
 {
@@ -629,8 +660,15 @@ public:
 class FREETYPE
 {
 	FT_Library ft;
+	uint VAO,VBO;
 public:
-	int Initialisieren()
+	~FREETYPE()
+	{
+		glDeleteVertexArrays(1, &VAO);
+		glDeleteBuffers(1, &VBO);
+	}
+
+	inline int Initialisieren()
 	{
 		// FreeType
 		// --------
@@ -707,27 +745,171 @@ public:
 		FT_Done_Face(face);
 		FT_Done_FreeType(ft);
 	}
+
+	/* Die Funktion um das Text Rändern zu ermöglichen */
+	inline void aktivieren()
+	{
+		// OpenGL state
+		// ------------
+		glEnable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	};
+
+	inline void deaktivieren()
+	{
+		glDisable(GL_CULL_FACE);
+		glDisable(GL_BLEND);
+	};
+
+	// Erstelle die Text Grafik - Render the Text Line
+	inline void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color)
+	{
+		//GLboolean t;
+		//glGetBooleanv(GL_CULL_FACE,&t);
+
+
+		// activate corresponding render state	
+		shader.use();
+		glUniform3f(glGetUniformLocation(shader.ID, "textColor"), color.x, color.y, color.z);
+		glActiveTexture(GL_TEXTURE0);
+		glBindVertexArray(VAO);
+
+		// iterate through all characters
+		std::string::const_iterator c;
+		for (c = text.begin(); c != text.end(); c++)
+		{
+			Character ch = Characters[*c];
+
+			float xpos = x + ch.Bearing.x * scale;
+			float ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
+
+			float w = ch.Size.x * scale;
+			float h = ch.Size.y * scale;
+			// update VBO for each character
+			float vertices[6][4] = {
+				{ xpos,     ypos + h,   0.0f, 0.0f },
+			{ xpos,     ypos,       0.0f, 1.0f },
+			{ xpos + w, ypos,       1.0f, 1.0f },
+
+			{ xpos,     ypos + h,   0.0f, 0.0f },
+			{ xpos + w, ypos,       1.0f, 1.0f },
+			{ xpos + w, ypos + h,   1.0f, 0.0f }
+			};
+			// render glyph texture over quad
+			glBindTexture(GL_TEXTURE_2D, ch.TextureID);
+			// update content of VBO memory
+			glBindBuffer(GL_ARRAY_BUFFER, VBO);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
+
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			// render quad
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+			x += (ch.Advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+		}
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 };
 
-uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen;
-
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+class MAP
 {
+	unsigned int VBO, VAO, EBO;
+public:
+	MAP()
+	{
+		// configure VAO/VBO for texture quads
+	// -----------------------------------
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 
 
-	Cam.xoffset = xoffset;
-	Cam.yoffset = yoffset;
-	
-	Cam.Z += Cam.yoffset;
+		// set up vertex data (and buffer(s)) and configure vertex attributes
+		// ------------------------------------------------------------------
+		float vertices[] = {
+			// positions          // texture coords
+			20.5f,  20.5f, 0.0f,   1.0f, 1.0f, // top right
+			20.5f, -20.5f, 0.0f,   1.0f, 0.0f, // bottom right
+			-20.5f, -20.5f, 0.0f,   0.0f, 0.0f, // bottom left
+			-20.5f,  20.5f, 0.0f,   0.0f, 1.0f  // top left 
+		};
+		unsigned int indices[] = {
+			0, 1, 3, // first triangle
+			1, 2, 3  // second triangle
+		};
+		
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glGenBuffers(1, &EBO);
 
-}
+		glBindVertexArray(VAO);
 
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+		// position attribute
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		// texture coord attribute
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+		glEnableVertexAttribArray(1);
+	};
+	~MAP()
+	{
+		glDeleteVertexArrays(1, &VAO);
+		glDeleteBuffers(1, &VBO);
+		glDeleteBuffers(1, &EBO);
+	}
+
+
+	void Render(Shader *shader, uint *tex0, uint *tex1)
+	{
+		// bind textures on corresponding texture units
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, *tex0); // texture1
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, *tex1); // texture2
+
+		// get matrix's uniform location and set matrix
+		shader ->use();
+
+		// create transformations
+		glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 projection = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, Cam.Z));
+
+		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.x / (float)Fensterdaten.y, 0.1f, 100.0f);
+		// retrieve the matrix uniform locations
+		unsigned int modelLoc = glGetUniformLocation(shader ->ID, "model");
+		unsigned int viewLoc = glGetUniformLocation(shader ->ID, "view");
+		// pass them to the shaders (3 different ways)
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
+		// note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
+		shader ->setMat4("projection", projection);
+
+
+		// render container
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	}
+};
 
 int main()
 {
-	PRIVAT_MYSQL SQL;
-	FREETYPE Schrift;
-
 	// glfw: initialize and configure
 	// ------------------------------
 	const char* glsl_version = "#version 130";
@@ -761,6 +943,10 @@ int main()
 		return -1;
 	}	
 
+	PRIVAT_MYSQL SQL;
+	FREETYPE Schrift;
+	MAP Map;
+
 	// build and compile our shader zprogram
 	// ------------------------------------
 	Shader ourShader("5.1.transform.vs", "5.1.transform.fs");
@@ -768,7 +954,7 @@ int main()
 	// compile and setup the shader
 	// ----------------------------
 	Shader shader("text.vs", "text.fs");
-	shader.use();
+	//shader.use();
 
 	Schrift.Initialisieren();
 
@@ -797,54 +983,7 @@ int main()
 	loadTexture(Blauer_Tropfen, "Resourcen/Blauer_Tropfen.tga");
 	loadTexture(Gelber_Tropfen, "Resourcen/Gelber_Tropfen.tga");
 	loadTexture(Schwarzer_Tropfen, "Resourcen/Schwarzer_Tropfen.tga");
-
-	// configure VAO/VBO for texture quads
-	// -----------------------------------
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-
-	// set up vertex data (and buffer(s)) and configure vertex attributes
-	// ------------------------------------------------------------------
-	float vertices[] = {
-		// positions          // texture coords
-		10.5f,  10.5f, 0.0f,   1.0f, 1.0f, // top right
-		10.5f, -10.5f, 0.0f,   1.0f, 0.0f, // bottom right
-		-10.5f, -10.5f, 0.0f,   0.0f, 0.0f, // bottom left
-		-10.5f,  10.5f, 0.0f,   0.0f, 1.0f  // top left 
-	};
-	unsigned int indices[] = {
-		0, 1, 3, // first triangle
-		1, 2, 3  // second triangle
-	};
-	unsigned int VBO, VAO, EBO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
-
-	glBindVertexArray(VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-	// texture coord attribute
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-
+		
 	// load and create a texture 
 	// -------------------------
 	unsigned int texture1, texture2;
@@ -874,30 +1013,7 @@ int main()
 		// input
 		// -----
 		processInput(window);
-
-		glfwGetCursorPos(window,&Fensterdaten.mousex,&Fensterdaten.mousey);
-
-		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
-		{
-
-		}
-
-		if (glfwGetKey(window,GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-			Cam.Y -= 0.001;
-		}
-		// Move backward
-		if (glfwGetKey(window,GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-			Cam.Y += 0.001;
-		}
-		// Strafe right
-		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-			Cam.X -= 0.001;
-		}
-		// Strafe left
-		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-			Cam.X += 0.001;
-		}
-
+			   		 
 		// Start the Dear ImGui frame
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -1129,46 +1245,15 @@ int main()
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		// bind textures on corresponding texture units
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture1); // texture1
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, Roter_Tropfen); // texture2
-
-		// get matrix's uniform location and set matrix
-		ourShader.use();				
-		
-		// create transformations
-		glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
-		glm::mat4 view = glm::mat4(1.0f);
-		glm::mat4 projection = glm::mat4(1.0f);
-		//model = glm::rotate(model, glm::radians(radians += float(0.1)), glm::vec3(1.0f, 0.0f, 0.0f));
-		model = glm::translate(model, glm::vec3(1.0 + Cam.X, 1.0f + Cam.Y, Cam.Z));
-		//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-
-		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.x / (float)Fensterdaten.y, 0.1f, 100.0f);
-		// retrieve the matrix uniform locations
-		unsigned int modelLoc = glGetUniformLocation(ourShader.ID, "model");
-		unsigned int viewLoc = glGetUniformLocation(ourShader.ID, "view");
-		// pass them to the shaders (3 different ways)
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-		// note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
-		ourShader.setMat4("projection", projection);
-
-
-		// render container
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		Map.Render(&ourShader,&texture1,&texture2);
 
 		{
-		RenderText_aktivieren();
+		Schrift.aktivieren();
 
-		RenderText(shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
-		RenderText(shader, "(C) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
+		Schrift.RenderText(shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
+		Schrift.RenderText(shader, "(C) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
 
-		RenderText_deaktivieren();
+		Schrift.deaktivieren();
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		}	
@@ -1179,80 +1264,8 @@ int main()
 		glfwPollEvents();
 	}
 
-	// optional: de-allocate all resources once they've outlived their purpose:
-	// ------------------------------------------------------------------------
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
-
 	// glfw: terminate, clearing all previously allocated GLFW resources.
 	// ------------------------------------------------------------------
 	glfwTerminate();
 	return 0;
-}
-
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
-inline void processInput(GLFWwindow *window)
-{
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, true);
-}
-
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
-inline void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-	// make sure the viewport matches the new window dimensions; note that width and 
-	// height will be significantly larger than specified on retina displays.
-	glViewport(0, 0, width, height);
-	Fensterdaten.x = width;
-	Fensterdaten.y = height;
-}
-
-// render line of text
-// -------------------
-inline void RenderText(Shader &shader, std::string text, float x, float y, float scale, glm::vec3 color)
-{
-	// activate corresponding render state	
-	shader.use();
-	glUniform3f(glGetUniformLocation(shader.ID, "textColor"), color.x, color.y, color.z);
-	glActiveTexture(GL_TEXTURE0);
-	glBindVertexArray(VAO);
-
-	// iterate through all characters
-	std::string::const_iterator c;
-	for (c = text.begin(); c != text.end(); c++)
-	{
-		Character ch = Characters[*c];
-
-		float xpos = x + ch.Bearing.x * scale;
-		float ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
-
-		float w = ch.Size.x * scale;
-		float h = ch.Size.y * scale;
-		// update VBO for each character
-		float vertices[6][4] = {
-			{ xpos,     ypos + h,   0.0f, 0.0f },
-		{ xpos,     ypos,       0.0f, 1.0f },
-		{ xpos + w, ypos,       1.0f, 1.0f },
-
-		{ xpos,     ypos + h,   0.0f, 0.0f },
-		{ xpos + w, ypos,       1.0f, 1.0f },
-		{ xpos + w, ypos + h,   1.0f, 0.0f }
-		};
-		// render glyph texture over quad
-		glBindTexture(GL_TEXTURE_2D, ch.TextureID);
-		// update content of VBO memory
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
-
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		// render quad
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		// now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-		x += (ch.Advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
-	}
-	glBindVertexArray(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
 }

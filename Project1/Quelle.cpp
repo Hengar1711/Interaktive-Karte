@@ -71,7 +71,7 @@
 			Kleine Markierungssteine mit Tropfen erstellen: Done
 			Bewegung der Kleinen Margierungsteine angleichen: Done | Es war eine Optische Täuschung der durch den z Versatz entstanden ist. (Verkürzung von z zur Plane, zum Reduzieren der Täuschung)
 			Diese Markierungsteine Verteilen: Done
-			Die markierungsteine mithilfe der datenbankpositionen laden: Progress
+			Die markierungsteine mithilfe der datenbankpositionen laden: Done
 			Die markierungsteine im fenster verschieben können: offen
 			neue markeirungsteine setzten im fenster: offen
 
@@ -313,7 +313,15 @@ class PRIVAT_MYSQL
 {
 	sql::Driver *driver;
 	sql::Connection *con;
-	sql::PreparedStatement *pstmt;
+	//sql::PreparedStatement *pstmt;
+	sql::PreparedStatement *Daten_Einfügen_Höhle;
+	sql::PreparedStatement *Daten_Einfügen_Mission;
+
+	sql::PreparedStatement *Alle_Daten_Lesen_Höhle;
+	sql::PreparedStatement *Alle_Daten_Lesen_Mission;
+
+	sql::PreparedStatement *Alle_Daten_Lesen_Mission_Einmalig;
+	sql::PreparedStatement *Einzel_Daten_Lesen_Mission;
 
 	sql::Statement *stmt;
 
@@ -338,49 +346,72 @@ public:
 
 		//please create database "quickstartdb" ahead of time
 		con->setSchema("world");
+
+		Preparestatments();
 	}
 	/* Aufräumen der Zeigerarythmetic (Ohne Smart Pointer = Speicherüberlauf "vorprogrammiert") */
 	~PRIVAT_MYSQL()
 	{	
 		//if (driver != 0)	delete driver;
-		if (pstmt != 0)		delete pstmt;
-		if (con != 0)		delete con;
-		if (result != 0)	delete result;
+		if (Daten_Einfügen_Höhle != 0)					delete Daten_Einfügen_Höhle;
+		if (Daten_Einfügen_Mission != 0)				delete Daten_Einfügen_Mission;
+
+		if (Alle_Daten_Lesen_Höhle != 0)				delete Alle_Daten_Lesen_Höhle;
+		if (Alle_Daten_Lesen_Mission != 0)				delete Alle_Daten_Lesen_Mission;
+		if (Alle_Daten_Lesen_Mission_Einmalig != 0)		delete Alle_Daten_Lesen_Mission_Einmalig;
+		if (Einzel_Daten_Lesen_Mission != 0)			delete Einzel_Daten_Lesen_Mission;
+
+		//if (pstmt != 0)		delete pstmt;
+		if (con != 0)									delete con;
+		if (result != 0)								delete result;
+	}
+
+	void Preparestatments()
+	{
+		Daten_Einfügen_Höhle = con->prepareStatement(SQL_EINFÜGEN_IN + CAVEENTRACE + "(Name, Position_X, Position_Y, Grundriss, Erzdeposits) VALUES(?,?,?,?,?);");
+		Daten_Einfügen_Mission = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren) VALUES(?,?,?,?,?,?);");
+	
+		Alle_Daten_Lesen_Höhle = con->prepareStatement(SQL_WÄHLE_ALLE_VON + CAVEENTRACE + ";");
+		Alle_Daten_Lesen_Mission = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + ";");
+
+		Alle_Daten_Lesen_Mission_Einmalig = con->prepareStatement(SQL_WÄHLE_EINZIGARTIGE + MISSIONEN + ";");		
 	}
 
 	/* Funktion zum Einfügen der Höhlen Daten - Speicher der Position x + y, der Grundriss Datei und der Typischen Erz Knoten Anzahl*/
-	void Daten_Einfügen(int X, int Y, string Grundriss, int Anzahl)
+	void Daten_Einfügen(string name,int X, int Y, string Grundriss, int Anzahl)
 	{
-		pstmt = con->prepareStatement(SQL_EINFÜGEN_IN + CAVEENTRACE +"(Position_X, Position_Y, Grundriss, Erzdeposits) VALUES(?,?,?,?);");
+		Daten_Einfügen_Höhle->setString(1, name);
+		Daten_Einfügen_Höhle->setInt(2, X);
+		Daten_Einfügen_Höhle->setInt(3, Y);
+		Daten_Einfügen_Höhle->setString(4, Grundriss);
+		Daten_Einfügen_Höhle->setInt(5, Anzahl);
 
-		pstmt->setInt(1, X);
-		pstmt->setInt(2, Y);
-		pstmt->setString(3, Grundriss);
-		pstmt->setInt(4, Anzahl);
-
-		pstmt->execute();
+		Daten_Einfügen_Höhle->execute();
 			cout << "One row in " + CAVEENTRACE + " inserted."<< endl;
 	}
 	/* Funktion zum Einfügen der Missiontexte - Es wird ein X/Y gespeichert um Mögliche unterschiedliche Missionsziele zu speichern */
 	void Daten_Einfügen(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0)
 	{
-		pstmt = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren) VALUES(?,?,?,?,?,?);");
-
-		pstmt->setInt(1, X);
-		pstmt->setInt(2, Y);
-		pstmt->setString(3, Missionsname);
-		pstmt->setString(4, Missionstyp);
-		pstmt->setString(5, Missionsbeschreibung);
-		pstmt->setInt(6, Ren);
+		Daten_Einfügen_Mission->setInt(1, X);
+		Daten_Einfügen_Mission->setInt(2, Y);
+		Daten_Einfügen_Mission->setString(3, Missionsname);
+		Daten_Einfügen_Mission->setString(4, Missionstyp);
+		Daten_Einfügen_Mission->setString(5, Missionsbeschreibung);
+		Daten_Einfügen_Mission->setInt(6, Ren);
 		
-		pstmt->execute();
-		cout << "One row in " + MISSIONEN + " inserted." << endl;
+		Daten_Einfügen_Mission->execute();
+			cout << "One row in " + MISSIONEN + " inserted." << endl;
 	}
 	
 	/* Vorgefertigte Konfiguration */
 	void Vorgefertigte_Daten_Einlesen()
 	{
-		Daten_Einfügen(4, 8, "Kleine", 10);
+		Daten_Einfügen("B1",4, 8, "Kleine", 10);
+		Daten_Einfügen("C10", 10, 8, "Kleine", 10);
+		Daten_Einfügen("E7", 1, 8, "Kleine", 10);
+		Daten_Einfügen("G7South", 7, 8, "Kleine", 10);
+		Daten_Einfügen("G7North", 9, 8, "Kleine", 10);
+		Daten_Einfügen("H7", 15, 8, "Kleine", 10);
 
 		Daten_Einfügen(1, 1, "Brueckenkopf", "Aufklaerung", "Aufklaerung Waldzone - Landung");
 
@@ -546,7 +577,7 @@ public:
 		stmt = con->createStatement();
 		stmt->execute("DROP TABLE IF EXISTS " + CAVEENTRACE);
 			cout << "Finished dropping table " + CAVEENTRACE +" (if existed)" << endl;
-		stmt->execute("CREATE TABLE " + CAVEENTRACE + " (id serial PRIMARY KEY, Position_X INTEGER, Position_Y INTEGER, Grundriss VARCHAR(50), Erzdeposits INTEGER);");
+		stmt->execute("CREATE TABLE " + CAVEENTRACE + " (id serial PRIMARY KEY, Name VARCHAR(50), Position_X INTEGER, Position_Y INTEGER, Grundriss VARCHAR(50), Erzdeposits INTEGER);");
 			cout << "Finished creating table" + CAVEENTRACE << endl;
 
 		stmt->execute("DROP TABLE IF EXISTS " + MISSIONEN);
@@ -562,9 +593,7 @@ public:
 	/* Dies ist eine Demo Funktion zum Außlesen aller Daten ungefiltert und unsortiert */
 	void Daten_Lesen()
 	{
-		//select  
-		pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + CAVEENTRACE + ";");
-		result = pstmt->executeQuery();
+		result = Alle_Daten_Lesen_Höhle->executeQuery();
 		Hölenentraces.clear();
 		while (result->next())
 		{			
@@ -576,9 +605,7 @@ public:
 			printf("Reading from table Caveentrace=(%d, %d, %d, %s, %d)\n",  i +1 , Hölenentraces[i].getX(), Hölenentraces[i].getY(), Hölenentraces[i].Grundriss, Hölenentraces[i].ErzknotenAnzahl);
 		}
 
-		//select  
-		pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + ";");
-		result = pstmt->executeQuery();
+		result = Alle_Daten_Lesen_Mission->executeQuery();
 
 		MISSIONSDATEN.clear();
 		while (result->next())
@@ -601,9 +628,7 @@ public:
 		
 		vector<pair<string,string>> temp;
 
-		/* Aufruf der Anweisung zur Filterung der Missionen */
-		pstmt = con->prepareStatement(SQL_WÄHLE_EINZIGARTIGE + MISSIONEN + ";");
-		result = pstmt->executeQuery();
+		result = Alle_Daten_Lesen_Mission_Einmalig->executeQuery();
 
 		while (result->next())
 			temp.push_back(pair<string, string>(result->getString(1) , result->getString(2)));
@@ -611,13 +636,27 @@ public:
 		return temp;
 	}
 
+	vector<glm::vec2> Hölenpositionen()
+	{
+		vector<glm::vec2> temp;
+		result = Alle_Daten_Lesen_Höhle->executeQuery();
+		Hölenentraces.clear();
+		while (result->next())
+		{
+			Hölenentraces.push_back(Höhlendaten(result->getInt(2), result->getInt(3), result->getString(4).c_str(), result->getInt(5)));
+			temp.push_back(glm::vec2(result->getInt(2), result->getInt(3)));
+		}
+		return temp;
+	};
+
 	/* Funktion zum Auslesen der Ausgewählten Missionsinformationen - Clean(Konsole) - TODO(Im Programm): Rückgabe als Datensatz zum weiterverarbeiten innerhalb der Schleife */
 	void Daten_Lesen(pair<string,string> name)
 	{
 		//select  
-		pstmt = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + SQL_WO + MISSIONSNAME +  "='" + name.first + "'" + " AND " + MISSIONSTYP + "='" + name.second + "'" );
+		if(Einzel_Daten_Lesen_Mission == 0)
+		Einzel_Daten_Lesen_Mission = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + SQL_WO + MISSIONSNAME +  "='" + name.first + "'" + " AND " + MISSIONSTYP + "='" + name.second + "'" );
 
-		result = pstmt->executeQuery();
+		result = Einzel_Daten_Lesen_Mission->executeQuery();
 		bool Erste_Missionsinfo = false;
 
 		while (result->next())
@@ -937,7 +976,7 @@ public:
 		// store instance data in an array buffer		
 		glGenBuffers(1, &instanceVBO);
 		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * translations.size(), &translations[0], GL_DYNAMIC_DRAW);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 		// Der Speicher für den Zeichenbereich der Markierung
@@ -986,7 +1025,14 @@ public:
 
 		translations[i] = Pos;
 		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * translations.size(), &translations[0], GL_DYNAMIC_DRAW);
+	};
+	void update(vector<glm::vec2> Pos)
+	{
+
+		translations = Pos;
+		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * translations.size(), &translations[0], GL_DYNAMIC_DRAW);
 	};
 
 	void Render(Shader *shader, uint &tex0, uint &tex1)
@@ -1241,6 +1287,21 @@ int main()
 				}
 				else
 				{
+					static char name[128] = "Kleine Pilzhoehle";
+					ImGui::InputText("Name", name, IM_ARRAYSIZE(name));
+					ImGui::SameLine(); HelpMarker(
+						"USER:\n"
+						"Hold SHIFT or use mouse to select text.\n"
+						"CTRL+Left/Right to word jump.\n"
+						"CTRL+A or double-click to select all.\n"
+						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+						"CTRL+Z,CTRL+Y undo/redo.\n"
+						"ESCAPE to revert.\n\n"
+						"PROGRAMMER:\n"
+						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
+						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
+						"in imgui_demo.cpp).");
+
 					static char str0[128] = "Kleine Pilzhoehle";
 					ImGui::InputText("Grundriss", str0, IM_ARRAYSIZE(str0));
 					ImGui::SameLine(); HelpMarker(
@@ -1265,13 +1326,13 @@ int main()
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(ix, iy, str0, ic); Einfügen = false;
+						SQL.Daten_Einfügen(name,ix, iy, str0, ic); Einfügen = false;
 					}
 				}
 			}
 
 			if (ImGui::Button("SQL Lesen"))
-				SQL.Daten_Lesen();
+				Entrace.update(SQL.Hölenpositionen()); //SQL.Daten_Lesen();
 
 			if (ImGui::Button("SQL Updaten"))
 				Updaten = !Updaten;
@@ -1371,21 +1432,10 @@ int main()
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+		//Entrace.update(SQL.Hölenpositionen());
+
 		Map.Render(&ourShader,&texture1,&texture2);
 		Entrace.Render(&instanzer, Blauer_Tropfen, Blauer_Tropfen);
-
-		//if (Wechsel)
-		//{
-		//	Entrace.update(glm::vec2(10.0, 0.0), 20);
-		//	Wechsel = !Wechsel;
-		//}
-		//else
-		//{
-			//Entrace.update(glm::vec2(20.0, 0.0), 20);
-			//Wechsel = !Wechsel;
-		//}
-		
-		
 
 		{
 		Schrift.aktivieren();

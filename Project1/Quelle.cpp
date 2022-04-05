@@ -135,9 +135,7 @@ public:
 		unsigned int Advance;   // Horizontal offset to advance to next glyph
 	};
 	map<GLchar, Character> Characters;
-
 	
-
 	window Fensterdaten;
 	
 	vector<pair<string,string>> Missionsliste;
@@ -196,13 +194,20 @@ inline void processInput(GLFWwindow *window)
 
 }
 
-inline void loadTexture(unsigned int &id,char const * path)
+inline uint loadTexture(char const * path)
 {
+	uint temp;
+	glGenTextures(1,&temp);
 	int width, height, nrComponents;
 	stbi_set_flip_vertically_on_load(true);
 	unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
 	if (data)
 	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
 		GLenum format;
 		if (nrComponents == 1)
 			format = GL_RED;
@@ -211,17 +216,14 @@ inline void loadTexture(unsigned int &id,char const * path)
 		else if (nrComponents == 4)
 			format = GL_RGBA;
 
-		glBindTexture(GL_TEXTURE_2D, id);
+		glBindTexture(GL_TEXTURE_2D, temp);
 		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glGenerateMipmap(GL_TEXTURE_2D);		
 
 		stbi_image_free(data);
 	};
+
+	return temp;
 };
 
 inline void HelpMarker(const char* desc)
@@ -815,7 +817,7 @@ public:
 
 class MAP
 {
-	unsigned int VBO, VAO, EBO;
+	uint VBO, VAO, EBO;
 public:
 	MAP()
 	{
@@ -908,6 +910,102 @@ public:
 	}
 };
 
+class Objektmarker
+{
+	uint VBO, VAO, EBO;
+public:
+	Objektmarker()
+	{
+		// configure VAO/VBO for texture quads
+	// -----------------------------------
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+
+
+		// set up vertex data (and buffer(s)) and configure vertex attributes
+		// ------------------------------------------------------------------
+		float vertices[] = {
+			// positions          // texture coords
+			0.3f, 0.3f, 0.0f,   1.0f, 1.0f, // top right
+			0.3f, 0.0f, 0.0f,   1.0f, 0.0f, // bottom right
+			0.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+			0.0f, 0.3f, 0.0f,   0.0f, 1.0f  // top left 
+		};
+		unsigned int indices[] = {
+			0, 1, 3, // first triangle
+			1, 2, 3  // second triangle
+		};
+
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glGenBuffers(1, &EBO);
+
+		glBindVertexArray(VAO);
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+		// position attribute
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		// texture coord attribute
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+		glEnableVertexAttribArray(1);
+	};
+	~Objektmarker()
+	{
+		glDeleteVertexArrays(1, &VAO);
+		glDeleteBuffers(1, &VBO);
+		glDeleteBuffers(1, &EBO);
+	}
+
+
+	void Render(Shader *shader, uint &tex0, uint &tex1)
+	{
+		// bind textures on corresponding texture units
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex0); // texture1
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex1); // texture2
+
+		// get matrix's uniform location and set matrix
+		shader->use();
+
+		// create transformations
+		glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 projection = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, -0.1 + Cam.Z));
+
+		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.x / (float)Fensterdaten.y, 0.1f, 100.0f);
+		// retrieve the matrix uniform locations
+		unsigned int modelLoc = glGetUniformLocation(shader->ID, "model");
+		unsigned int viewLoc = glGetUniformLocation(shader->ID, "view");
+		// pass them to the shaders (3 different ways)
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
+		// note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
+		shader->setMat4("projection", projection);
+
+
+		// render container
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	}
+};
+
+
 int main()
 {
 	// glfw: initialize and configure
@@ -946,6 +1044,7 @@ int main()
 	PRIVAT_MYSQL SQL;
 	FREETYPE Schrift;
 	MAP Map;
+	Objektmarker Entrace;
 
 	// build and compile our shader zprogram
 	// ------------------------------------
@@ -979,17 +1078,20 @@ int main()
 
 	Missionsliste = SQL.Daten_Lesen_Missionsname();
 
-	loadTexture(Roter_Tropfen, "Resourcen/Roter_Tropfen.tga");
-	loadTexture(Blauer_Tropfen, "Resourcen/Blauer_Tropfen.tga");
-	loadTexture(Gelber_Tropfen, "Resourcen/Gelber_Tropfen.tga");
-	loadTexture(Schwarzer_Tropfen, "Resourcen/Schwarzer_Tropfen.tga");
+	
 		
 	// load and create a texture 
 	// -------------------------
 	unsigned int texture1, texture2;
 
-	loadTexture(texture1, "Resourcen/HQ_Map.png");
-	loadTexture(texture2, "Resourcen/HQ_Map.png");
+	texture1 = loadTexture("Resourcen/HQ_Map.png");
+	texture2 = loadTexture("Resourcen/HQ_Map.png");
+
+	Schwarzer_Tropfen = loadTexture("Resourcen/Schwarzer_Tropfen.tga");
+	Roter_Tropfen = loadTexture("Resourcen/Roter_Tropfen.tga");
+	Blauer_Tropfen = loadTexture("Resourcen/Blauer_Tropfen.tga");
+	Gelber_Tropfen = loadTexture("Resourcen/Gelber_Tropfen.tga");
+	
 
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
 	// -------------------------------------------------------------------------------------------
@@ -1246,6 +1348,7 @@ int main()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		Map.Render(&ourShader,&texture1,&texture2);
+		Entrace.Render(&ourShader, Blauer_Tropfen, Blauer_Tropfen);
 
 		{
 		Schrift.aktivieren();

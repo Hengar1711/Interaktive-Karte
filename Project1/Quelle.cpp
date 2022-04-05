@@ -67,10 +67,11 @@
 			Erstellen der Hintergrund Karte: Done
 			Die Grafik mit Alpha Kanal laden: Done
 			Die 2D Karte als "semi 3D" erstellen: Done
-			die bewegung auf den kartenbereich beschränken: progress
-			Kleine Markierungssteine mit Tropfen erstellen: open
-			Diese Markierungsteine Verteilen: open
-			Die markierungsteine mithilfe der datenbankpositionen laden: open
+			die bewegung auf den kartenbereich beschränken: Done
+			Kleine Markierungssteine mit Tropfen erstellen: Done
+			Bewegung der Kleinen Margierungsteine angleichen: Done | Es war eine Optische Täuschung der durch den z Versatz entstanden ist. (Verkürzung von z zur Plane, zum Reduzieren der Täuschung)
+			Diese Markierungsteine Verteilen: Done
+			Die markierungsteine mithilfe der datenbankpositionen laden: Progress
 			Die markierungsteine im fenster verschieben können: offen
 			neue markeirungsteine setzten im fenster: offen
 
@@ -913,34 +914,42 @@ public:
 class Objektmarker
 {
 	uint VBO, VAO, EBO;
+	uint instanceVBO;
+	vector<glm::vec2> translations;
 public:
 	Objektmarker()
 	{
-		// configure VAO/VBO for texture quads
-	// -----------------------------------
-		glGenVertexArrays(1, &VAO);
-		glGenBuffers(1, &VBO);
-		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+		
+		int index = 0;
+		float offset = 0.1f;
+		for (int y = -10; y < 10; y += 2)
+		{
+			for (int x = -10; x < 10; x += 2)
+			{
+				glm::vec2 translation;
+				translation.x = (float)x / 1.0f + offset;
+				translation.y = (float)y / 1.0f + offset;
+				index++;
+				translations.push_back(translation);
+			}
+		}
+
+		// store instance data in an array buffer		
+		glGenBuffers(1, &instanceVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_DYNAMIC_DRAW);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
 
-
-		// set up vertex data (and buffer(s)) and configure vertex attributes
-		// ------------------------------------------------------------------
+		// Der Speicher für den Zeichenbereich der Markierung
 		float vertices[] = {
 			// positions          // texture coords
-			0.3f, 0.3f, 0.0f,   1.0f, 1.0f, // top right
-			0.3f, 0.0f, 0.0f,   1.0f, 0.0f, // bottom right
-			0.0f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
-			0.0f, 0.3f, 0.0f,   0.0f, 1.0f  // top left 
-		};
-		unsigned int indices[] = {
-			0, 1, 3, // first triangle
-			1, 2, 3  // second triangle
+			 0.1f, 0.3f, 0.0f,   1.0f, 1.0f, // top right
+			 0.1f, 0.0f, 0.0f,   1.0f, 0.0f, // bottom right
+			-0.1f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+
+			-0.1f, 0.3f, 0.0f,   0.0f, 1.0f,  // top left 
+			 0.1f, 0.3f, 0.0f,   1.0f, 1.0f, // top right
+			-0.1f, 0.0f, 0.0f,   0.0f, 0.0f // bottom left
 		};
 
 		glGenVertexArrays(1, &VAO);
@@ -948,19 +957,22 @@ public:
 		glGenBuffers(1, &EBO);
 
 		glBindVertexArray(VAO);
-
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-		// position attribute
+		/* In GLSL der Speicherbereich für die Verxtex(Punkt) Positionen */
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 		glEnableVertexAttribArray(0);
-		// texture coord attribute
+		/* IN GLSL der Speicherbereich für die Texturen Position */
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 		glEnableVertexAttribArray(1);
+
+		/* Die Instanzdaten */
+		glEnableVertexAttribArray(2);
+		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO); // this attribute comes from a different vertex buffer
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glVertexAttribDivisor(2, 1); // tell OpenGL this is an instanced vertex attribute.
 	};
 	~Objektmarker()
 	{
@@ -969,14 +981,19 @@ public:
 		glDeleteBuffers(1, &EBO);
 	}
 
+	void update(glm::vec2 Pos, int i)
+	{
+
+		translations[i] = Pos;
+		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_DYNAMIC_DRAW);
+	};
 
 	void Render(Shader *shader, uint &tex0, uint &tex1)
 	{
 		// bind textures on corresponding texture units
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex0); // texture1
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, tex1); // texture2
 
 		// get matrix's uniform location and set matrix
 		shader->use();
@@ -985,7 +1002,7 @@ public:
 		glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, -0.1 + Cam.Z));
+		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, -0.001 + Cam.Z));
 
 		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.x / (float)Fensterdaten.y, 0.1f, 100.0f);
@@ -1001,7 +1018,7 @@ public:
 
 		// render container
 		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glDrawArraysInstanced(GL_TRIANGLES,0, 6, 100); // 100 triangles of 6 vertices each//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
 };
 
@@ -1049,6 +1066,10 @@ int main()
 	// build and compile our shader zprogram
 	// ------------------------------------
 	Shader ourShader("5.1.transform.vs", "5.1.transform.fs");
+
+	// build and compile our shader zprogram
+	// ------------------------------------
+	Shader instanzer("MatrixShader.vs", "MatrixShader.fs");
 
 	// compile and setup the shader
 	// ----------------------------
@@ -1104,6 +1125,9 @@ int main()
 	static bool Löschen = false;
 	static bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
 	static bool Mission_Ausgewählt = false;
+
+	bool Wechsel = false;
+
 
 	float radians = 0.0;
 
@@ -1348,7 +1372,20 @@ int main()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		Map.Render(&ourShader,&texture1,&texture2);
-		Entrace.Render(&ourShader, Blauer_Tropfen, Blauer_Tropfen);
+		Entrace.Render(&instanzer, Blauer_Tropfen, Blauer_Tropfen);
+
+		//if (Wechsel)
+		//{
+		//	Entrace.update(glm::vec2(10.0, 0.0), 20);
+		//	Wechsel = !Wechsel;
+		//}
+		//else
+		//{
+			//Entrace.update(glm::vec2(20.0, 0.0), 20);
+			//Wechsel = !Wechsel;
+		//}
+		
+		
 
 		{
 		Schrift.aktivieren();

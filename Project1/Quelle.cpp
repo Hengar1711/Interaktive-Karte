@@ -96,21 +96,33 @@ public:
 	bool Is_Links_Klickt, Is_Rechts_Klickt;
 	int Action;
 	double X, Y;
+	float NX, NY;
 };
 
 class window: public Koordinaten
 {
 public:
 	MAUS Maus;
-	window() : Koordinaten(800, 600) {};
 
+	glm::vec3 MAUS()
+	{
+		return glm::vec3(Maus.X, Maus.Y, 0.0);
+	}
+	window() : Koordinaten(800, 600) {};
+	glm::vec4 viewport = { 0,0,X,Y };
 	int *ID;
+
+	void operator() (int X, int Y) { this->X = X; this->Y = Y;  }
+
+	
 };
 
 class Simple_Cam
 {
 public:
-	float X = 0, Y = 0, Z = 0;
+	glm::vec3 C;
+	glm::mat4 view = glm::mat4(1.0f); 
+	glm::mat4 projection = glm::mat4(1.0f);
 } Cam;
 
 #ifndef DEFINITIONEN
@@ -178,7 +190,7 @@ inline void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // Immer wenn das Mausrad gedreht wird, führe diesen Callback aus.
 inline void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	Cam.Z += yoffset;
+	Cam.C.z += yoffset;
 };
 
 //inline void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -201,6 +213,15 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	}
 }
 
+bool Statusanzeige = false;
+
+glm::vec3 test(glm::mat4 Projection)
+{
+	glm::mat4 Model = glm::mat4{ 1.0 };
+
+	//view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+	return glm::unProject(Fensterdaten.MAUS(), Model, Projection, Fensterdaten.viewport);	
+}
 
 // Verarbeite hier sämtlichen Input, zum trennen von Renderdaten und Tastertur
 inline void processInput(GLFWwindow *window)
@@ -217,44 +238,63 @@ inline void processInput(GLFWwindow *window)
 		glfwGetCursorPos(window, &N_X, &N_Y);
 
 		CX = N_X - Fensterdaten.Maus.X;
-		CY = N_Y - Fensterdaten.Maus.Y;
+
+		CY = Fensterdaten.Maus.Y - N_Y;
 		
-		Cam.X += (CX / 100.0);
-		if (Cam.X < -20.0)
-			Cam.X = -20.0;
-		if (Cam.X > 20.0)
-			Cam.X = 20.0;
+		Cam.C.x += (CX / 100.0);
+		if (Cam.C.x < -20.0)
+			Cam.C.x = -20.0;
+		if (Cam.C.x > 20.0)
+			Cam.C.x = 20.0;
 				
-		Cam.Y += (CY / 100.0);
-		if (Cam.Y < -20.0)
-			Cam.Y = -20.0;
-		if (Cam.Y > 20.0)
-			Cam.Y = 20.0;
+		Cam.C.y += (CY / 100.0);
+		if (Cam.C.y < -20.0)
+			Cam.C.y = -20.0;
+		if (Cam.C.y > 20.0)
+			Cam.C.y = 20.0;
 		
 	}
 
 	glfwGetCursorPos(window, &Fensterdaten.Maus.X, &Fensterdaten.Maus.Y);
+	Fensterdaten.Maus.NX = (Fensterdaten.Maus.X / (Fensterdaten.X * 0.5)) - 1.0;
+	Fensterdaten.Maus.NY = (Fensterdaten.Maus.Y / (Fensterdaten.Y * 0.5)) - 1.0;
+
+	// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
+	if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && !Statusanzeige)
+	{
+		//cout << Fensterdaten.Maus.X << "," << Fensterdaten.Maus.Y << endl;
+		//cout << Cam.X << "," << Cam.Y << endl;
+
+		glm::vec3 T0 = test(Cam.projection);
+		cout << T0.x << "," << T0.y << "," << T0.z << endl;
+		cout << Fensterdaten.Maus.NX << "," << Fensterdaten.Maus.NY << endl;
+		Statusanzeige = true;
+	}
+	if (glfwGetKey(window, GLFW_KEY_F) != GLFW_PRESS)
+	{
+		Statusanzeige = false;
+	}
 
 	// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
 	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		if (Cam.Y > -20.0)
-			Cam.Y -= 0.001;
+		if (Cam.C.y > -20.0)
+			Cam.C.y -= 0.001;
 	}
 	// Die Steuerung um sich auf der Karte nach Unten zu bewegen.
 	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		if (Cam.Y < 20.0)
+		if (Cam.C.y < 20.0)
 
-			Cam.Y += 0.001;
+			Cam.C.y += 0.001;
 	}
 	// Die Steuerung um sich auf der Karte nach Rechts zu bewegen.
 	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-		if (Cam.X > -20.0)
-			Cam.X -= 0.001;
+		if (Cam.C.x > -20.0)
+			Cam.C.x -= 0.001;
 	}
 	// Die Steuerung um sich auf der Karte nach Links zu bewegen.
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-		if (Cam.X < 20.0)
-			Cam.X += 0.001;
+		if (Cam.C.x < 20.0)
+			Cam.C.x += 0.001;
 	}
 }
 
@@ -464,7 +504,7 @@ public:
 		Daten_Einfügen("B1",4, 8, "Kleine", 10);
 		Daten_Einfügen("C10", 10, 8, "Kleine", 10);
 		Daten_Einfügen("E7", 1, 8, "Kleine", 10);
-		Daten_Einfügen("G7South", 7, 8, "Kleine", 10);
+		Daten_Einfügen("G7South", 7, 15, "Kleine", 10);
 		Daten_Einfügen("G7North", 9, 8, "Kleine", 10);
 		Daten_Einfügen("H7", 15, 8, "Kleine", 10);
 
@@ -698,8 +738,10 @@ public:
 		Hölenentraces.clear();
 		while (result->next())
 		{
-			Hölenentraces.push_back(Höhlendaten(result->getInt(2), result->getInt(3), result->getString(4).c_str(), result->getInt(5)));
-			temp.push_back(glm::vec2(result->getInt(2), result->getInt(3)));
+			int tx = result->getInt(3);
+			int ty = result->getInt(4);
+			Hölenentraces.push_back(Höhlendaten(tx, ty, result->getString(5).c_str(), result->getInt(6)));
+			temp.push_back(glm::vec2(tx, ty));
 		}
 		return temp;
 	};
@@ -990,11 +1032,9 @@ public:
 		// create transformations
 		glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
 		glm::mat4 view = glm::mat4(1.0f);
-		glm::mat4 projection = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, Cam.Z));
+		model = glm::translate(model, glm::vec3(0.0 + Cam.C.x, 0.0f + Cam.C.y, Cam.C.z));
 
 		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.getX() / (float)Fensterdaten.getY(), 0.1f, 100.0f);
 		// retrieve the matrix uniform locations
 		unsigned int modelLoc = glGetUniformLocation(shader ->ID, "model");
 		unsigned int viewLoc = glGetUniformLocation(shader ->ID, "view");
@@ -1002,7 +1042,7 @@ public:
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
 		// note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
-		shader ->setMat4("projection", projection);
+		shader ->setMat4("projection", Cam.projection);
 
 
 		// render container
@@ -1107,11 +1147,9 @@ public:
 		// create transformations
 		glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
 		glm::mat4 view = glm::mat4(1.0f);
-		glm::mat4 projection = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, -0.001 + Cam.Z));
-
+		model = glm::translate(model, glm::vec3(0.0 + Cam.C.x, 0.0f + Cam.C.y, -0.001 + Cam.C.z));
+				
 		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.getX() / (float)Fensterdaten.getY(), 0.1f, 100.0f);
 		// retrieve the matrix uniform locations
 		unsigned int modelLoc = glGetUniformLocation(shader->ID, "model");
 		unsigned int viewLoc = glGetUniformLocation(shader->ID, "view");
@@ -1119,15 +1157,14 @@ public:
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
 		// note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
-		shader->setMat4("projection", projection);
+		shader->setMat4("projection", Cam.projection);
 
 
 		// render container
 		glBindVertexArray(VAO);
-		glDrawArraysInstanced(GL_TRIANGLES,0, 6, 100); // 100 triangles of 6 vertices each//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glDrawArraysInstanced(GL_TRIANGLES,0, 6, translations.size()); // 100 triangles of 6 vertices each//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
 };
-
 
 int main()
 {
@@ -1252,6 +1289,9 @@ int main()
 		// -----
 		processInput(window);
 			   		 
+		Cam.view = glm::translate(Cam.view, glm::vec3(0.0f, 0.0f, -3.0f));
+		Cam.projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.getX() / (float)Fensterdaten.getY(), 0.1f, 100.0f);
+
 		// Start the Dear ImGui frame
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -1398,7 +1438,13 @@ int main()
 			}
 
 			if (ImGui::Button("SQL Lesen"))
-				Entrace.update(SQL.Hölenpositionen());
+			{
+				vector<glm::vec2> Temp = SQL.Hölenpositionen();
+				Entrace.update(Temp);
+			}
+
+			int x = Hölenentraces[0].getX();
+			int y = Hölenentraces[0].getY();
 
 			if (ImGui::Button("SQL Updaten"))
 				Updaten = !Updaten;

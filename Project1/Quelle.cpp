@@ -72,19 +72,39 @@
 			Bewegung der Kleinen Margierungsteine angleichen: Done | Es war eine Optische Täuschung der durch den z Versatz entstanden ist. (Verkürzung von z zur Plane, zum Reduzieren der Täuschung)
 			Diese Markierungsteine Verteilen: Done
 			Die markierungsteine mithilfe der datenbankpositionen laden: Done
-			Die markierungsteine im fenster verschieben können: offen
+			Die markierungsteine im fenster verschieben können: offen - Auswahlfunktion mithilfe Raycast und vergleich bzw da die Karte "nur" 2D ist - Die Position der Karte + die Position der Maus umgerechnet mit der Position des Objektes vergleichen
 			neue markeirungsteine setzten im fenster: offen
 
 
 
 */
+class Koordinaten
+{
+	
+public:
+	int X, Y;
+	Koordinaten() {};
+	Koordinaten(int X, int Y) : X(X), Y(Y) {};
+	Koordinaten operator() (int X, int Y) { this->X = X; this->Y = Y; return *this; }
+	int getX() { return X; };
+	int getY() { return Y; };
+};
 
-class window
+class MAUS
 {
 public:
-	int x = 800;
-	int y = 600;
-	double mousex, mousey;
+	bool Is_Links_Klickt, Is_Rechts_Klickt;
+	int Action;
+	double X, Y;
+};
+
+class window: public Koordinaten
+{
+public:
+	MAUS Maus;
+	window() : Koordinaten(800, 600) {};
+
+	int *ID;
 };
 
 class Simple_Cam
@@ -152,8 +172,7 @@ inline void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	// make sure the viewport matches the new window dimensions; note that width and 
 	// height will be significantly larger than specified on retina displays.
 	glViewport(0, 0, width, height);
-	Fensterdaten.x = width;
-	Fensterdaten.y = height;
+	Fensterdaten(width, height);
 }
 
 // Immer wenn das Mausrad gedreht wird, führe diesen Callback aus.
@@ -162,6 +181,27 @@ inline void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	Cam.Z += yoffset;
 };
 
+//inline void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+//{
+//}
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && Fensterdaten.ID == 0)
+	{
+		Fensterdaten.Maus.Is_Links_Klickt = GLFW_PRESS;
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action != GLFW_PRESS && Fensterdaten.ID == 0)
+	{
+		Fensterdaten.Maus.Is_Links_Klickt = 0;
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT)
+	{
+		Fensterdaten.Maus.Action = action;
+	}
+}
+
+
 // Verarbeite hier sämtlichen Input, zum trennen von Renderdaten und Tastertur
 inline void processInput(GLFWwindow *window)
 {
@@ -169,8 +209,32 @@ inline void processInput(GLFWwindow *window)
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 
+	/* Abschnitt der Kartnebewegung mit der Maus */
+	if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID == 0)
+	{
+		double N_X, N_Y, CX, CY;
 
-	glfwGetCursorPos(window, &Fensterdaten.mousex, &Fensterdaten.mousey);
+		glfwGetCursorPos(window, &N_X, &N_Y);
+
+		CX = N_X - Fensterdaten.Maus.X;
+		CY = N_Y - Fensterdaten.Maus.Y;
+		
+		Cam.X += (CX / 100.0);
+		if (Cam.X < -20.0)
+			Cam.X = -20.0;
+		if (Cam.X > 20.0)
+			Cam.X = 20.0;
+				
+		Cam.Y += (CY / 100.0);
+		if (Cam.Y < -20.0)
+			Cam.Y = -20.0;
+		if (Cam.Y > 20.0)
+			Cam.Y = 20.0;
+		
+	}
+
+	glfwGetCursorPos(window, &Fensterdaten.Maus.X, &Fensterdaten.Maus.Y);
+
 	// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
 	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 		if (Cam.Y > -20.0)
@@ -192,7 +256,6 @@ inline void processInput(GLFWwindow *window)
 		if (Cam.X < 20.0)
 			Cam.X += 0.001;
 	}
-
 }
 
 inline uint loadTexture(char const * path)
@@ -240,15 +303,7 @@ inline void HelpMarker(const char* desc)
 	}
 };
 
-class Koordinaten
-{
-	int X, Y;
-public:
-	Koordinaten() {};
-	Koordinaten(int X, int Y) : X(X), Y(Y) {};
-	int getX() { return X; };
-	int getY() { return Y; };
-};
+
 
 class Höhlendaten : public Koordinaten
 {	
@@ -652,8 +707,8 @@ public:
 	/* Funktion zum Auslesen der Ausgewählten Missionsinformationen - Clean(Konsole) - TODO(Im Programm): Rückgabe als Datensatz zum weiterverarbeiten innerhalb der Schleife */
 	void Daten_Lesen(pair<string,string> name)
 	{
-		//select  
-		if(Einzel_Daten_Lesen_Mission == 0)
+		vector<Missionsdaten> temp;
+
 		Einzel_Daten_Lesen_Mission = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + SQL_WO + MISSIONSNAME +  "='" + name.first + "'" + " AND " + MISSIONSTYP + "='" + name.second + "'" );
 
 		result = Einzel_Daten_Lesen_Mission->executeQuery();
@@ -661,18 +716,24 @@ public:
 
 		while (result->next())
 		{
+			temp.push_back(Missionsdaten(result->getInt(2), result->getInt(3), result->getString(4).c_str(), result->getString(5).c_str(), result->getString(6).c_str(), result->getInt(7)));
+			
+			temp.back().getX();
+
 			if (!Erste_Missionsinfo)
 			{
-				cout << "Gelesen von Tabelle " + MISSIONEN + " = bei x=" << result->getInt(2) << " | y=" << result->getInt(3) << endl;
-				cout << "Die Mission \"" << result->getString(4).c_str() << ": " << result->getString(5).c_str() << "\"" << endl;
+				cout << "Gelesen von Tabelle " + MISSIONEN + " = bei x=" << temp.back().getX() << " | y=" << temp.back().getY() << endl;
+				cout << "Die Mission \"" << temp.back().getName() << ": " << temp.back().getTyp() << "\"" << endl;
 				Erste_Missionsinfo = true;
 			}
 			
-			cout << "Die Aufgabe ist: \"" << result->getString(6).c_str() << "\"";
-			if (result->getInt(7) != 0)
-				cout << " und als Belohnungen gibt es " << result->getInt(7) << " Ren ";
+			cout << "Die Aufgabe ist: \"" << temp.back().getBeschreibung() << "\"";
+			if (temp.back().getRen() != 0)
+				cout << " und als Belohnungen gibt es " << temp.back().getRen() << " Ren ";
 			cout << endl;
-		}		
+		}	
+
+		Einzel_Daten_Lesen_Mission->close();
 	}
 
 	/* TODO(Im Programm) nach Loginfenster zum Verschieben einzelner Objekte als Datenbank Manager */
@@ -933,7 +994,7 @@ public:
 		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, Cam.Z));
 
 		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.x / (float)Fensterdaten.y, 0.1f, 100.0f);
+		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.getX() / (float)Fensterdaten.getY(), 0.1f, 100.0f);
 		// retrieve the matrix uniform locations
 		unsigned int modelLoc = glGetUniformLocation(shader ->ID, "model");
 		unsigned int viewLoc = glGetUniformLocation(shader ->ID, "view");
@@ -1022,7 +1083,6 @@ public:
 
 	void update(glm::vec2 Pos, int i)
 	{
-
 		translations[i] = Pos;
 		glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * translations.size(), &translations[0], GL_DYNAMIC_DRAW);
@@ -1051,7 +1111,7 @@ public:
 		model = glm::translate(model, glm::vec3(0.0 + Cam.X, 0.0f + Cam.Y, -0.001 + Cam.Z));
 
 		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.x / (float)Fensterdaten.y, 0.1f, 100.0f);
+		projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.getX() / (float)Fensterdaten.getY(), 0.1f, 100.0f);
 		// retrieve the matrix uniform locations
 		unsigned int modelLoc = glGetUniformLocation(shader->ID, "model");
 		unsigned int viewLoc = glGetUniformLocation(shader->ID, "view");
@@ -1085,7 +1145,7 @@ int main()
 
 	// glfw window creation
 	// --------------------
-	GLFWwindow* window = glfwCreateWindow(Fensterdaten.x, Fensterdaten.y, "LearnOpenGL", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(Fensterdaten.getX(), Fensterdaten.getY(), "LearnOpenGL", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -1093,8 +1153,11 @@ int main()
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
+
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
+	//glfwSetCursorPosCallback(window, cursor_position_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 
 	// glad: load all OpenGL function pointers
 	// ---------------------------------------
@@ -1107,7 +1170,10 @@ int main()
 	PRIVAT_MYSQL SQL;
 	FREETYPE Schrift;
 	MAP Map;
-	Objektmarker Entrace;
+	Objektmarker Entrace;   /* Marker für Höhleneingänge */
+	Objektmarker Mission;   /* Marker für Missionen */
+	Objektmarker Exospots;  /* Marker für Exospots */
+	Objektmarker Bossspots; /* Marker für BossSpots */
 
 	// build and compile our shader zprogram
 	// ------------------------------------
@@ -1332,7 +1398,7 @@ int main()
 			}
 
 			if (ImGui::Button("SQL Lesen"))
-				Entrace.update(SQL.Hölenpositionen()); //SQL.Daten_Lesen();
+				Entrace.update(SQL.Hölenpositionen());
 
 			if (ImGui::Button("SQL Updaten"))
 				Updaten = !Updaten;
@@ -1432,10 +1498,12 @@ int main()
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		//Entrace.update(SQL.Hölenpositionen());
-
 		Map.Render(&ourShader,&texture1,&texture2);
+
 		Entrace.Render(&instanzer, Blauer_Tropfen, Blauer_Tropfen);
+		Bossspots.Render(&instanzer, Roter_Tropfen, Roter_Tropfen);
+		Exospots.Render(&instanzer, Schwarzer_Tropfen, Schwarzer_Tropfen);
+		Mission.Render(&instanzer, Gelber_Tropfen, Gelber_Tropfen);
 
 		{
 		Schrift.aktivieren();

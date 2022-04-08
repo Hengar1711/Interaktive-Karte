@@ -72,7 +72,7 @@
 			Bewegung der Kleinen Margierungsteine angleichen: Done | Es war eine Optische Täuschung der durch den z Versatz entstanden ist. (Verkürzung von z zur Plane, zum Reduzieren der Täuschung)
 			Diese Markierungsteine Verteilen: Done
 			Die markierungsteine mithilfe der datenbankpositionen laden: Done
-			Die markierungsteine im fenster verschieben können: offen - Auswahlfunktion mithilfe Raycast und vergleich bzw da die Karte "nur" 2D ist - Die Position der Karte + die Position der Maus umgerechnet mit der Position des Objektes vergleichen
+			Die markierungsteine im fenster verschieben können: Semi Funktionierend - Bugfix: Korregiere die Selectionsauswahl auserhalb der Mitte des Fensters 
 			neue markeirungsteine setzten im fenster: offen
 
 
@@ -85,9 +85,19 @@ public:
 	float X, Y;
 	Koordinaten() {};
 	Koordinaten(float X, float Y) : X(X), Y(Y) {};
-	Koordinaten operator() (float X, float Y) { this->X = X; this->Y = Y; return *this; }
+	Koordinaten operator() (float X, float Y) { this->X = X; this->Y = Y; return *this; };
 	float getX() { return X; };
 	float getY() { return Y; };
+};
+
+class NAME
+{
+public:
+	string name;
+	NAME() {};
+	NAME(string name) : name(name) {};
+	NAME operator() (string name) { this->name = name; return *this; };
+	string getName() { return name; };
 };
 
 class MAUS
@@ -99,8 +109,6 @@ public:
 	float NX, NY;
 };
 
-
-
 class Simple_Cam
 {
 public:
@@ -109,17 +117,34 @@ public:
 	glm::mat4 projection = glm::mat4(1.0f);
 } Cam;
 
-class Höhlendaten : public Koordinaten
+class BASISATTRIBUTE : public Koordinaten, public NAME
+{
+public:
+	int Index;
+	string Zusatz;
+};
+
+class Höhlendaten : public BASISATTRIBUTE
 {
 
 public:
-	string name;
+	//string name;
 	string Grundriss;
 	int ErzknotenAnzahl;
-	Höhlendaten(string name, int X, int Y, string Grundriss, int Anzahl) : name(name), Koordinaten(X, Y), Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
-	{};
-	Höhlendaten(Koordinaten cords, string Grundriss, int Anzahl) : Koordinaten(cords.getX(), cords.getY()), Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
-	{};
+	Höhlendaten(string name, int X, int Y, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
+	{
+		Index = 0;
+		this->name = name;
+		this->X = X;
+		this->Y = Y;
+	};
+	Höhlendaten(Koordinaten cords, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
+	{
+		Index = 0;
+		this->name = name;
+		this->X = cords.getX();
+		this->Y = cords.getY();
+	};
 
 	operator Koordinaten()
 	{
@@ -131,51 +156,49 @@ public:
 	}
 };
 
-class window: public Koordinaten
-{
-public:
-	MAUS Maus;
-
-	glm::vec3 MAUS()
-	{
-		return glm::vec3(Maus.X, Maus.Y, Maus.Z);
-	}
-	window() : Koordinaten(800, 600) {};
-	glm::vec4 viewport = { 0,0,X,Y };
-	Höhlendaten *ID;
-
-	void operator() (int X, int Y) 
-	{
-		this->X = X; 
-		this->Y = Y; 
-		viewport = { 0,Y,X,-Y };
-	}	
-};
-
 /* Die Koordinaten sollten für den Missionsbeginn beim Landungschiff stehen */
-class Missionsdaten : public Koordinaten
+class Missionsdaten : public BASISATTRIBUTE
 {
-	string Missionsname;
 	string Missionstyp;
 
 	int Belohnung_Ren;
 public:
 	string Missionsbeschreibung;
-	Missionsdaten(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : Koordinaten(X, Y),
-		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
-	{};
-	Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : Koordinaten(cords.getX(), cords.getY()),
-		Missionsname(Missionsname), Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
-	{};
+	Missionsdaten(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : 
+		Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
+	{
+		Index = 1;
+		Zusatz = this->Missionsbeschreibung;
+		this->name = Missionsname;
+		this->X = X;
+		this->Y = Y;
+	};
+	Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : 
+		Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
+	{
+		Index = 1;
+		Zusatz = this->Missionsbeschreibung;
+		this->name = Missionsname;
+		this->X = cords.getX();
+		this->Y = cords.getY();
+	};
 
 	operator Koordinaten()
 	{
 		return Koordinaten(this->getX(), this->getY());
 	}
+	operator glm::vec2()
+	{
+		return glm::vec2(X, Y);
+	}
 
+	glm::vec2 getKoordinaten()
+	{
+		return  glm::vec2(X, Y);
+	}
 	string getName()
 	{
-		return Missionsname;
+		return name;
 	};
 	string getTyp()
 	{
@@ -191,10 +214,31 @@ public:
 	}
 };
 
+class window: public Koordinaten
+{
+public:
+	MAUS Maus;
+
+	glm::vec3 MAUS()
+	{
+		return glm::vec3(Maus.X, Maus.Y, Maus.Z);
+	}
+	window() : Koordinaten(800, 600) {};
+	glm::vec4 viewport = { 0,0,X,Y };
+
+
+	BASISATTRIBUTE *ID;
+
+	void operator() (int X, int Y) 
+	{
+		this->X = X; 
+		this->Y = Y; 
+		viewport = { 0,Y,X,-Y };
+	}	
+}Fensterdaten;
+
 vector<Höhlendaten> Höhlenentraces;
 vector<Missionsdaten> MISSIONSDATEN;
-
-string Testausgabe;
 
 #ifndef DEFINITIONEN
 	#define DEFINITIONEN
@@ -240,13 +284,10 @@ string Testausgabe;
 	};
 	map<GLchar, Character> Characters;
 	
-	window Fensterdaten;
-	
 	vector<pair<string,string>> Missionsliste;
 	string Missionsnamensuche;	
 
-	uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen;
-
+	uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen, texture1, texture2;
 #endif
 
 class PRIVAT_MYSQL
@@ -318,11 +359,11 @@ public:
 	}
 
 	/* Funktion zum Einfügen der Höhlen Daten - Speicher der Position x + y, der Grundriss Datei und der Typischen Erz Knoten Anzahl*/
-	void Daten_Einfügen(string name, int X, int Y, string Grundriss, int Anzahl)
+	void Daten_Einfügen(string name, float X, float Y, string Grundriss, int Anzahl)
 	{
 		Daten_Einfügen_Höhle->setString(1, name);
-		Daten_Einfügen_Höhle->setInt(2, X);
-		Daten_Einfügen_Höhle->setInt(3, Y);
+		Daten_Einfügen_Höhle->setDouble(2, X);
+		Daten_Einfügen_Höhle->setDouble(3, Y);
 		Daten_Einfügen_Höhle->setString(4, Grundriss);
 		Daten_Einfügen_Höhle->setInt(5, Anzahl);
 
@@ -330,10 +371,10 @@ public:
 		cout << "One row in " + CAVEENTRACE + " inserted." << endl;
 	}
 	/* Funktion zum Einfügen der Missiontexte - Es wird ein X/Y gespeichert um Mögliche unterschiedliche Missionsziele zu speichern */
-	void Daten_Einfügen(int X, int Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0)
+	void Daten_Einfügen(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0)
 	{
-		Daten_Einfügen_Mission->setInt(1, X);
-		Daten_Einfügen_Mission->setInt(2, Y);
+		Daten_Einfügen_Mission->setDouble(1, X);
+		Daten_Einfügen_Mission->setDouble(2, Y);
 		Daten_Einfügen_Mission->setString(3, Missionsname);
 		Daten_Einfügen_Mission->setString(4, Missionstyp);
 		Daten_Einfügen_Mission->setString(5, Missionsbeschreibung);
@@ -509,6 +550,7 @@ public:
 		Daten_Einfügen(1, 1, "Pilgerreise", "Erkundung", "Ladnung");
 		Daten_Einfügen(1, 1, "Kryogen", "Forschung", "Ladnung");
 		Daten_Einfügen(1, 1, "Ausgegraben", "Forschung", "Ladnung");
+		Daten_Einfügen(1, 1, "Meridian", "Extraktion", "Ladnung");
 	}
 
 	/* Basisfunktion sofern noch keine Tabelle erstellt worden ist */
@@ -592,7 +634,7 @@ public:
 	};
 
 	/* Funktion zum Auslesen der Ausgewählten Missionsinformationen - Clean(Konsole) - TODO(Im Programm): Rückgabe als Datensatz zum weiterverarbeiten innerhalb der Schleife */
-	void Daten_Lesen(pair<string, string> name)
+	vector<Missionsdaten> Daten_Lesen(pair<string, string> name)
 	{
 		vector<Missionsdaten> temp;
 
@@ -603,7 +645,7 @@ public:
 
 		while (result->next())
 		{
-			temp.push_back(Missionsdaten(result->getInt(2), result->getInt(3), result->getString(4).c_str(), result->getString(5).c_str(), result->getString(6).c_str(), result->getInt(7)));
+			temp.push_back(Missionsdaten(result->getDouble(2), result->getDouble(3), result->getString(4).c_str(), result->getString(5).c_str(), result->getString(6).c_str(), result->getInt(7)));
 
 			temp.back().getX();
 
@@ -621,21 +663,31 @@ public:
 		}
 
 		Einzel_Daten_Lesen_Mission->close();
+		return temp;
 	}
 
 	/* TODO(Im Programm) nach Loginfenster zum Verschieben einzelner Objekte als Datenbank Manager */
-	void Daten_Updaten(string name, float x, float y)
+	void Daten_Updaten(BASISATTRIBUTE *ID)
 	{
 		//update
-		pstmt = con->prepareStatement("UPDATE " + CAVEENTRACE + " SET Position_X = ?, Position_Y = ? WHERE name = ?");
-
-		pstmt->setString(1, name);
-		pstmt->setDouble(2, x);
-		pstmt->setDouble(3, y);
-
+		switch (ID->Index)
+		{
+		case 1:
+			pstmt = con->prepareStatement("UPDATE " + MISSIONEN + " SET Position_X = ?, Position_Y = ? WHERE Missionsname = ? AND Missionsbeschreibung = ?");
+			break;
+		case 0:
+		default:
+			pstmt = con->prepareStatement("UPDATE " + CAVEENTRACE + " SET Position_X = ?, Position_Y = ? WHERE name = ?");
+			break;
+		}
+		
+		pstmt->setDouble(1, ID->X);
+		pstmt->setDouble(2, ID->Y);
+		pstmt->setString(3, ID->name);
+		if(ID->Index == 1) 
+			pstmt->setString(4, ID->Zusatz);
+					
 		pstmt->executeQuery();
-		cout << FUNKTIONSLOS << endl; //cout << "Zeile Geupdatet" << endl;
-		;
 	}
 
 	/* TODO(Im Programm) nach Loginfenster zum entfernen einzelner Objekte als Datenbank Manager */
@@ -929,14 +981,14 @@ public:
 
 		// Der Speicher für den Zeichenbereich der Markierung
 		float vertices[] = {
-			// positions          // texture coords
-				0.1f, 0.3f, 0.0f,   1.0f, 1.0f, // top right
-				0.1f, 0.0f, 0.0f,   1.0f, 0.0f, // bottom right
-			-0.1f, 0.0f, 0.0f,   0.0f, 0.0f, // bottom left
+			// positions         // texture coords
+			 0.1f, 0.3f, 0.0f,   1.0f, 1.0f,	// top right
+			 0.1f, 0.0f, 0.0f,   1.0f, 0.0f,	// bottom right
+			-0.1f, 0.0f, 0.0f,   0.0f, 0.0f,	// bottom left
 
-			-0.1f, 0.3f, 0.0f,   0.0f, 1.0f,  // top left 
-				0.1f, 0.3f, 0.0f,   1.0f, 1.0f, // top right
-			-0.1f, 0.0f, 0.0f,   0.0f, 0.0f // bottom left
+			-0.1f, 0.3f, 0.0f,   0.0f, 1.0f,	// top left 
+			 0.1f, 0.3f, 0.0f,   1.0f, 1.0f,	// top right
+			-0.1f, 0.0f, 0.0f,   0.0f, 0.0f		// bottom left
 		};
 
 		glGenVertexArrays(1, &VAO);
@@ -997,9 +1049,7 @@ public:
 		model = glm::translate(model, glm::vec3(0.0 + Cam.C.x, 0.0f + Cam.C.y, -0.001 + Cam.C.z));
 
 		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-
-
-
+			   
 		// retrieve the matrix uniform locations
 		unsigned int modelLoc = glGetUniformLocation(shader->ID, "model");
 		unsigned int viewLoc = glGetUniformLocation(shader->ID, "view");
@@ -1008,8 +1058,7 @@ public:
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
 		// note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
 		shader->setMat4("projection", Cam.projection);
-
-
+		
 		// render container
 		glBindVertexArray(VAO);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, translations.size()); // 100 triangles of 6 vertices each//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -1031,9 +1080,6 @@ inline void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	Cam.C.z += yoffset;
 };
 
-//inline void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
-//{
-//}
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
@@ -1061,24 +1107,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 bool Statusanzeige = false;
 
-glm::vec3 CreateRay() 
-{
-	// these positions must be in range [-1, 1] (!!!), not [0, width] and [0, height]
-	//float mouseX = getMousePositionX() / (getWindowWidth()  * 0.5f) - 1.0f;
-	//float mouseY = getMousePositionY() / (getWindowHeight() * 0.5f) - 1.0f;
-
-	glm::mat4 proj = Cam.projection;//glm::perspective(FoV, AspectRatio, Near, Far);
-	glm::mat4 view = glm::lookAt(glm::vec3(0.0f), { 0.0,0.0,1.0 }, glm::vec3{0.0,1.0,0.0});
-
-	glm::mat4 invVP = glm::inverse(proj * view);
-	glm::vec4 screenPos = glm::vec4(Fensterdaten.Maus.NX, -Fensterdaten.Maus.NY, 1.0f, 1.0f);
-	glm::vec4 worldPos = invVP * screenPos;
-
-	glm::vec3 dir = glm::normalize(glm::vec3(worldPos));
-
-	return dir;
-}
-
 glm::vec3 test(glm::mat4 Projection)
 {
 	glReadBuffer(GL_FRONT);
@@ -1096,8 +1124,6 @@ glm::vec3 test(glm::mat4 Projection)
 	cout << "Mit der Cam bei:" << Cam.C.x << "," << Cam.C.y << "," << Cam.C.z << endl;
 	cout << "und dem Mauszeiger bei:" << Fensterdaten.Maus.X << "," << Fensterdaten.Maus.Y << endl;
 
-
-	//view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
 	for (float i = -1.0; i <= 1.0; i += 0.1)
 	{
 		glm::vec3 t1 = glm::unProjectNO(glm::vec3(Fensterdaten.Maus.X, Fensterdaten.Maus.Y, i), model, proj, Fensterdaten.viewport);
@@ -1105,186 +1131,57 @@ glm::vec3 test(glm::mat4 Projection)
 	}
 	glm::vec3 t1 = glm::unProjectNO(glm::vec3(Fensterdaten.Maus.X, Fensterdaten.Maus.Y, 0.0), model, proj, Fensterdaten.viewport);
 	return t1;
-
-	// mouse coords in range (-1 -> 1) glm::normalize(glm::vec3(glm::inverse(proj) * glm::vec4(Fensterdaten.Maus.NX, Fensterdaten.Maus.NY, 1.0f, 1.0f)));
 }
 
-bool compare(glm::vec3 Cursor, Höhlendaten Objekt)
+bool compare(glm::vec3 Cursor, BASISATTRIBUTE *Objekt)
 {
 	/* Wenn das X und Y  innerhalb des Bereichs liegt - gebe den namen zurück */
-	if (Cursor.x >= (Objekt.getX() + (-0.1)) && Cursor.x <= (Objekt.getX() + (0.1)) && Cursor.y >= (Objekt.getY() + (-0.1)) && Cursor.y <= (Objekt.getY() + (0.1)))
+	if (Cursor.x >= (Objekt ->getX() + (-0.1)) && Cursor.x <= (Objekt->getX() + (0.1)) &&
+		Cursor.y >= (Objekt ->getY() + (-0.1)) && Cursor.y <= (Objekt->getY() + (0.1)))
 		return true;
 	return false;
 }
-/*
-void ScreenPosToWorldRay(
-	//int mouseX, int mouseY,             // Mouse position, in pixels, from bottom-left corner of the window
-	//int screenWidth, int screenHeight,  // Window size, in pixels
-	glm::mat4 ViewMatrix,               // Camera position and orientation
-	glm::mat4 ProjectionMatrix,         // Camera parameters (ratio, field of view, near and far planes)
-	glm::vec3& out_origin,              // Ouput : Origin of the ray. /!\ Starts at the near plane, so if you want the ray to start at the camera's position instead, ignore this.
-	glm::vec3& out_direction            // Ouput : Direction, in world space, of the ray that goes "through" the mouse.
-) {
 
-	// The ray Start and End positions, in Normalized Device Coordinates (Have you read Tutorial 4 ?)
-	glm::vec4 lRayStart_NDC(
-		(Fensterdaten.Maus.X / Fensterdaten.X - 0.5f) * 1.0f, // [0,1024] -> [-1,1]
-		(Fensterdaten.Maus.Y / Fensterdaten.Y - 0.5f) * 1.0f, // [0, 768] -> [-1,1]
-		-1.0, // The near plane maps to Z=-1 in Normalized Device Coordinates
-		1.0f
-	);
-	glm::vec4 lRayEnd_NDC( (Fensterdaten.Maus.X / Fensterdaten.X - 0.5f) * 1.0f, (Fensterdaten.Maus.Y / Fensterdaten.Y - 0.5f) * 1.0f, 0.0, 1.0f);
+void Objektanwahl()
+{
+	/* Daten des Coursors im 3D Raum, für den vergleich zur Anwahl */
+	glm::vec3 T0 = test(Cam.projection);
 
+	/* Bit zur Steuerung, dass die Anzeige nur "einaml" pro klick stattfindet */
+	Statusanzeige = true;
 
-	// The Projection matrix goes from Camera Space to NDC.
-	// So inverse(ProjectionMatrix) goes from NDC to Camera Space.
-	glm::mat4 InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
-
-	// The View Matrix goes from World Space to Camera Space.
-	// So inverse(ViewMatrix) goes from Camera Space to World Space.
-	glm::mat4 InverseViewMatrix = glm::inverse(ViewMatrix);
-
-	glm::vec4 lRayStart_camera	= InverseProjectionMatrix	* lRayStart_NDC;    lRayStart_camera	/= lRayStart_camera.w;
-	glm::vec4 lRayStart_world	= InverseViewMatrix			* lRayStart_camera; lRayStart_world		/= lRayStart_world.w;
-	glm::vec4 lRayEnd_camera	= InverseProjectionMatrix	* lRayEnd_NDC;      lRayEnd_camera		/= lRayEnd_camera.w;
-	glm::vec4 lRayEnd_world		= InverseViewMatrix			* lRayEnd_camera;   lRayEnd_world		/= lRayEnd_world.w;
-
-
-	// Faster way (just one inverse)
-	//glm::mat4 M = glm::inverse(ProjectionMatrix * ViewMatrix);
-	//glm::vec4 lRayStart_world = M * lRayStart_NDC; lRayStart_world/=lRayStart_world.w;
-	//glm::vec4 lRayEnd_world   = M * lRayEnd_NDC  ; lRayEnd_world  /=lRayEnd_world.w;
-
-
-	glm::vec3 lRayDir_world(lRayEnd_world - lRayStart_world);
-	lRayDir_world = glm::normalize(lRayDir_world);
-
-
-	out_origin		= glm::vec3(lRayStart_world);
-	cout << out_origin.x << "," << out_origin.y << "," << out_origin.z << endl;
-	out_direction	= glm::normalize(lRayDir_world);
-	cout << out_direction.x << "," << out_direction.y << "," << out_direction.z << endl;
-}
-
-bool TestRayOBBIntersection(
-	glm::vec3 ray_origin,        // Ray origin, in world space
-	glm::vec3 ray_direction,     // Ray direction (NOT target position!), in world space. Must be normalize()'d.
-	glm::vec3 aabb_min,          // Minimum X,Y,Z coords of the mesh when not transformed at all.
-	glm::vec3 aabb_max,          // Maximum X,Y,Z coords. Often aabb_min*-1 if your mesh is centered, but it's not always the case.
-	glm::mat4 ModelMatrix,       // Transformation applied to the mesh (which will thus be also applied to its bounding box)
-	float& intersection_distance // Output : distance between ray_origin and the intersection with the OBB
-) {
-
-	// Intersection method from Real-Time Rendering and Essential Mathematics for Games
-
-	float tMin = 0.0f;
-	float tMax = 100000.0f;
-
-	glm::vec3 OBBposition_worldspace(ModelMatrix[3].x, ModelMatrix[3].y, ModelMatrix[3].z);
-
-	glm::vec3 delta = OBBposition_worldspace - ray_origin;
-
-	// Test intersection with the 2 planes perpendicular to the OBB's X axis
+	if (Fensterdaten.ID == 0)
 	{
-		glm::vec3 xaxis(ModelMatrix[0].x, ModelMatrix[0].y, ModelMatrix[0].z);
-		float e = glm::dot(xaxis, delta);
-		float f = glm::dot(ray_direction, xaxis);
-
-		if (fabs(f) > 0.001f) { // Standard case
-
-			float t1 = (e + aabb_min.x) / f; // Intersection with the "left" plane
-			float t2 = (e + aabb_max.x) / f; // Intersection with the "right" plane
-			// t1 and t2 now contain distances betwen ray origin and ray-plane intersections
-
-			// We want t1 to represent the nearest intersection, 
-			// so if it's not the case, invert t1 and t2
-			if (t1 > t2) {
-				float w = t1; t1 = t2; t2 = w; // swap t1 and t2
+		/* Bereich, zum Anwahl abgleich */
+		for (uint i = 0; i < Höhlenentraces.size(); i++)
+		{
+			if (compare(T0, &Höhlenentraces[i]))
+			{
+				Fensterdaten.ID = &Höhlenentraces[i];
+				if (Fensterdaten.ID != 0)
+					cout << Fensterdaten.ID->name << endl;
+				return;
 			}
-
-			// tMax is the nearest "far" intersection (amongst the X,Y and Z planes pairs)
-			if (t2 < tMax)
-				tMax = t2;
-			// tMin is the farthest "near" intersection (amongst the X,Y and Z planes pairs)
-			if (t1 > tMin)
-				tMin = t1;
-
-			// And here's the trick :
-			// If "far" is closer than "near", then there is NO intersection.
-			// See the images in the tutorials for the visual explanation.
-			if (tMax < tMin)
-				return false;
-
 		}
-		else { // Rare case : the ray is almost parallel to the planes, so they don't have any "intersection"
-			if (-e + aabb_min.x > 0.0f || -e + aabb_max.x < 0.0f)
-				return false;
+
+		for (uint i = 0; i < MISSIONSDATEN.size(); i++)
+		{
+			if (compare(T0, &MISSIONSDATEN[i]))
+			{
+				Fensterdaten.ID = &MISSIONSDATEN[i];
+				if (Fensterdaten.ID != 0)
+					cout << Fensterdaten.ID->name << endl;
+				return;
+			}
 		}
 	}
-
-
-	// Test intersection with the 2 planes perpendicular to the OBB's Y axis
-	// Exactly the same thing than above.
+	/* Bereich, falls kein Objekt angewählt wurde*/
+	if (Fensterdaten.ID != 0)
 	{
-		glm::vec3 yaxis(ModelMatrix[1].x, ModelMatrix[1].y, ModelMatrix[1].z);
-		float e = glm::dot(yaxis, delta);
-		float f = glm::dot(ray_direction, yaxis);
-
-		if (fabs(f) > 0.001f) {
-
-			float t1 = (e + aabb_min.y) / f;
-			float t2 = (e + aabb_max.y) / f;
-
-			if (t1 > t2) { float w = t1; t1 = t2; t2 = w; }
-
-			if (t2 < tMax)
-				tMax = t2;
-			if (t1 > tMin)
-				tMin = t1;
-			if (tMin > tMax)
-				return false;
-
-		}
-		else {
-			if (-e + aabb_min.y > 0.0f || -e + aabb_max.y < 0.0f)
-				return false;
-		}
-	}
-
-
-	// Test intersection with the 2 planes perpendicular to the OBB's Z axis
-	// Exactly the same thing than above.
-	{
-		glm::vec3 zaxis(ModelMatrix[2].x, ModelMatrix[2].y, ModelMatrix[2].z);
-		float e = glm::dot(zaxis, delta);
-		float f = glm::dot(ray_direction, zaxis);
-
-		if (fabs(f) > 0.001f) {
-
-			float t1 = (e + aabb_min.z) / f;
-			float t2 = (e + aabb_max.z) / f;
-
-			if (t1 > t2) { float w = t1; t1 = t2; t2 = w; }
-
-			if (t2 < tMax)
-				tMax = t2;
-			if (t1 > tMin)
-				tMin = t1;
-			if (tMin > tMax)
-				return false;
-
-		}
-		else {
-			if (-e + aabb_min.z > 0.0f || -e + aabb_max.z < 0.0f)
-				return false;
-		}
-	}
-
-	intersection_distance = tMin;
-	return true;
-
+		SQL.Daten_Updaten(Fensterdaten.ID);
+	}		
+	Fensterdaten.ID = 0;
 }
-*/
 
 // Verarbeite hier sämtlichen Input, zum trennen von Renderdaten und Tastertur
 inline void processInput(GLFWwindow *window)
@@ -1338,8 +1235,6 @@ inline void processInput(GLFWwindow *window)
 			Fensterdaten.ID->Y = -20.0;
 		if (Fensterdaten.ID->Y > 20.0)
 			Fensterdaten.ID->Y = 20.0;
-
-
 	}
 
 	glfwGetCursorPos(window, &Fensterdaten.Maus.X, &Fensterdaten.Maus.Y);
@@ -1347,62 +1242,11 @@ inline void processInput(GLFWwindow *window)
 	Fensterdaten.Maus.NY = (Fensterdaten.Maus.Y / (Fensterdaten.Y * 0.5)) - 1.0;
 
 	// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
-	if ((glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS || Fensterdaten.Maus.Is_Rechts_Klickt) && !Statusanzeige)
+	if (Fensterdaten.Maus.Is_Rechts_Klickt && !Statusanzeige)
 	{
-		//cout << Fensterdaten.Maus.X << "," << Fensterdaten.Maus.Y << endl;
-		//cout << Cam.X << "," << Cam.Y << endl;
-			   
-		glm::vec3 T0 = test(Cam.projection);//CreateRay();
-		//cout << T0.x << "," << T0.y << "," << T0.z << endl;
-		//vector<glm::vec3> positions;
-
-		//for (uint i = 0; i < Höhlenentraces.size(); i++)
-		//	positions.push_back(Höhlenentraces[i]);
-		//
-		//glm::mat4 view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-		//		glm::vec3 ray_origin;
-		//		glm::vec3 ray_direction;
-		//		ScreenPosToWorldRay(
-		//			//1024 / 2, 768 / 2,
-		//			//1024, 768,
-		//			view,
-		//			Cam.projection,
-		//			ray_origin,
-		//			ray_direction
-		//		);
-
-		for (uint i = 0; i < Höhlenentraces.size(); i++)
-		{
-			//float intersection_distance; // Output of TestRayOBBIntersection()
-			//glm::vec3 aabb_min(-0.1f, 0.0f, 0.0f);
-			//glm::vec3 aabb_max( 0.1f, 0.3f, 0.0f);
-
-			// The ModelMatrix transforms :
-			// - the mesh to its desired position and orientation
-			// - but also the AABB (defined with aabb_min and aabb_max) into an OBB
-			//glm::mat4 RotationMatrix = glm::mat4(1.0f);
-			//glm::mat4 TranslationMatrix = glm::translate(TranslationMatrix, glm::vec3(0.0 + Cam.C.x +Höhlenentraces[i].X, 0.0f + Cam.C.y + Höhlenentraces[i].Y, -0.001 + Cam.C.z)); //glm::translate(glm::mat4(), positions[i]);
-			//glm::mat4 ModelMatrix = TranslationMatrix * RotationMatrix;
-
-			if (compare(T0, Höhlenentraces[i])) // if (TestRayOBBIntersection(ray_origin, ray_direction, aabb_min, aabb_max, ModelMatrix, intersection_distance)) //
-			{
-				Fensterdaten.ID = &Höhlenentraces[i];
-				Testausgabe = Höhlenentraces[i].name;
-				if (Fensterdaten.ID != 0)
-					cout << Fensterdaten.ID->name << endl;
-				break;
-			}
-			else
-			{
-				if(Fensterdaten.ID != 0)
-					SQL.Daten_Updaten(Fensterdaten.ID->name, Fensterdaten.ID->X, Fensterdaten.ID->Y);
-				Fensterdaten.ID = 0;
-			}
-				
-		}
-		Statusanzeige = true;
+		Objektanwahl();
 	}
-	if (glfwGetKey(window, GLFW_KEY_F) != GLFW_PRESS && !Fensterdaten.Maus.Is_Rechts_Klickt)
+	if (!Fensterdaten.Maus.Is_Rechts_Klickt)
 	{
 		Statusanzeige = false;
 	}
@@ -1475,7 +1319,6 @@ inline void HelpMarker(const char* desc)
 	}
 };
 
-
 int main()
 {
 	// glfw: initialize and configure
@@ -1503,7 +1346,6 @@ int main()
 
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
-	//glfwSetCursorPosCallback(window, cursor_position_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
 
 	// glad: load all OpenGL function pointers
@@ -1557,13 +1399,9 @@ int main()
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	Missionsliste = SQL.Daten_Lesen_Missionsname();
-
+	Entrace.update(SQL.Hölenpositionen());
+	Mission.update(vector<glm::vec2>(0));
 	
-		
-	// load and create a texture 
-	// -------------------------
-	unsigned int texture1, texture2;
-
 	texture1 = loadTexture("Resourcen/HQ_Map.png");
 	texture2 = loadTexture("Resourcen/HQ_Map.png");
 
@@ -1604,9 +1442,13 @@ int main()
 			Tempo.push_back(Höhlenentraces[i]);
 		Entrace.update(Tempo);
 
-
+		Tempo.clear();
+		for (uint i = 0; i < MISSIONSDATEN.size(); i++)
+			Tempo.push_back(MISSIONSDATEN[i]);
+		Mission.update(Tempo);
+		
 		Cam.view = glm::translate(Cam.view, glm::vec3(0.0f, 0.0f, -3.0f));
-		Cam.projection = glm::perspective(glm::radians(45.0f), (float)Fensterdaten.getX() / (float)Fensterdaten.getY(), 0.1f, 100.0f);
+		Cam.projection = glm::perspective(glm::radians(45.0f), Fensterdaten.getX() / Fensterdaten.getY(), 0.1f, 100.0f);
 
 		// Start the Dear ImGui frame
 		ImGui_ImplOpenGL3_NewFrame();
@@ -1626,12 +1468,26 @@ int main()
 				if (ImGui::ArrowButton("##left", ImGuiDir_Left)) //ImGui::SameLine(0.0f, spacing);
 				{
 					Missionsliste = SQL.Daten_Lesen_Missionsname();
+					MISSIONSDATEN.clear();
 					Mission_Ausgewählt = false;
 				}
 			}
 
-			ImGui::Text("Dies ist die Datensteuerung fuer\ndie Interaktive Karte.");               // Display some text (you can use a format strings too)
-			ImGui::Text(Testausgabe.c_str());               // Display some text (you can use a format strings too)
+			ImGui::Text("Dies ist die Steuerung fuer\ndie Interaktive Karte.");               // Display some text (you can use a format strings too)
+			
+			
+			if (Fensterdaten.ID != 0)
+			{
+				std::ostringstream ss;
+				ImGui::Text("Angewaehlt ist der Punkt");				
+				ss << Fensterdaten.ID->X << "," << Fensterdaten.ID->Y << endl;
+				if (Fensterdaten.ID->Index == 1)
+					ss << "dies ist aus der Mission" << Fensterdaten.ID->name << " die Aufgabe" << Fensterdaten.ID->Zusatz;
+				else
+					ss << "dies ist die Hoehle '" << Fensterdaten.ID->name << "'" << endl;
+				ImGui::Text(ss.str().c_str());               // Display some text (you can use a format strings too)
+
+			}
 
 			ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
 
@@ -1720,11 +1576,7 @@ int main()
 						"CTRL+A or double-click to select all.\n"
 						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n\n"
-						"PROGRAMMER:\n"
-						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-						"in imgui_demo.cpp).");
+						"ESCAPE to revert.\n");
 
 					static char str0[128] = "Kleine Pilzhoehle";
 					ImGui::InputText("Grundriss", str0, IM_ARRAYSIZE(str0));
@@ -1735,11 +1587,7 @@ int main()
 						"CTRL+A or double-click to select all.\n"
 						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n\n"
-						"PROGRAMMER:\n"
-						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-						"in imgui_demo.cpp).");
+						"ESCAPE to revert.\n");
 
 					static int ix = 2;
 					ImGui::InputInt("X", &ix);
@@ -1755,47 +1603,46 @@ int main()
 				}
 			}
 
-			if (ImGui::Button("SQL Lesen"))
-			{
-				vector<glm::vec2> Temp = SQL.Hölenpositionen();
-				Entrace.update(Temp);
-			}
+			//if (ImGui::Button("SQL Lesen"))
+			//{
+			//	vector<glm::vec2> Temp = SQL.Hölenpositionen();
+			//	Entrace.update(Temp);
+			//}
 
 			int x = Höhlenentraces[0].getX();
 			int y = Höhlenentraces[0].getY();
 
-			if (ImGui::Button("SQL Updaten"))
-				Updaten = !Updaten;
-			if (Updaten)
+			if (Fensterdaten.ID != 0)
 			{
-				static char str1[128] = "orange";
-				ImGui::InputText("input text", str1, IM_ARRAYSIZE(str1));
-				ImGui::SameLine(); HelpMarker(
-					"USER:\n"
-					"Hold SHIFT or use mouse to select text.\n"
-					"CTRL+Left/Right to word jump.\n"
-					"CTRL+A or double-click to select all.\n"
-					"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-					"CTRL+Z,CTRL+Y undo/redo.\n"
-					"ESCAPE to revert.\n\n"
-					"PROGRAMMER:\n"
-					"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-					"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-					"in imgui_demo.cpp).");
-
-
-				static int px = 1000;
-				ImGui::InputInt("input int", &px);
-
-				static int py = 1000;
-				ImGui::InputInt("input int", &py);
-
-				if (ImGui::Button("Updaten"))
+				if (ImGui::Button("SQL Updaten"))
+					Updaten = !Updaten;
+				if (Updaten)
 				{
-					SQL.Daten_Updaten(string(str1),px,py);
-					Updaten = false;
+					static char NAME[128] = "Höhle";
+					ImGui::InputText("Höhlennamen", NAME, IM_ARRAYSIZE(NAME));
+					ImGui::SameLine(); HelpMarker(
+						"USER:\n"
+						"Hold SHIFT or use mouse to select text.\n"
+						"CTRL+Left/Right to word jump.\n"
+						"CTRL+A or double-click to select all.\n"
+						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+						"CTRL+Z,CTRL+Y undo/redo.\n"
+						"ESCAPE to revert.\n");
+
+					static float px = Fensterdaten.ID ->X;
+					ImGui::InputFloat("X Position", &px);
+
+					static float py = Fensterdaten.ID ->Y;
+					ImGui::InputFloat("Y Position", &py);
+
+					if (ImGui::Button("Updaten"))
+					{
+						SQL.Daten_Updaten(Fensterdaten.ID);
+						Updaten = false;
+					}
 				}
 			}
+				
 
 			if (ImGui::Button("SQL Loeschen"))
 				Löschen = !Löschen;
@@ -1810,11 +1657,7 @@ int main()
 					"CTRL+A or double-click to select all.\n"
 					"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 					"CTRL+Z,CTRL+Y undo/redo.\n"
-					"ESCAPE to revert.\n\n"
-					"PROGRAMMER:\n"
-					"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-					"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-					"in imgui_demo.cpp).");
+					"ESCAPE to revert.\n");
 
 				if (ImGui::Button("Loeschen"))
 				{
@@ -1841,10 +1684,13 @@ int main()
 						string combi = Missionsliste[i].first + Missionsliste[i].second;
 						if (ImGui::Button(combi.c_str(), ImVec2(-FLT_MIN, 0.0f)))
 						{
-							SQL.Daten_Lesen(Missionsliste[i]);
+							MISSIONSDATEN = SQL.Daten_Lesen(Missionsliste[i]);
+							vector<glm::vec2> temp;
+							for (uint i = 0; i < MISSIONSDATEN.size(); i++)
+								temp.push_back(MISSIONSDATEN[i]);
+							Mission.update(temp);
 							Mission_Ausgewählt = true;
 						}
-
 					}
 					ImGui::EndTable();
 				}
@@ -1867,11 +1713,12 @@ int main()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 		Map.Render(&ourShader,&texture1,&texture2);
-
 		Entrace.Render(&instanzer, Blauer_Tropfen, Blauer_Tropfen);
+		Mission.Render(&instanzer, Gelber_Tropfen, Gelber_Tropfen);
+
 		//Bossspots.Render(&instanzer, Roter_Tropfen, Roter_Tropfen);
 		//Exospots.Render(&instanzer, Schwarzer_Tropfen, Schwarzer_Tropfen);
-		//Mission.Render(&instanzer, Gelber_Tropfen, Gelber_Tropfen);
+		
 
 		{
 		Schrift.aktivieren();

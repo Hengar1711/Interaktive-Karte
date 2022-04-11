@@ -122,6 +122,25 @@ class BASISATTRIBUTE : public Koordinaten, public NAME
 public:
 	int Index;
 	string Zusatz;
+
+	BASISATTRIBUTE() {};
+	BASISATTRIBUTE(float x, float y,int Index, string name, string Zusatz = "") : Index(Index)
+	{
+		this->X = x;
+		this->Y = y;
+		this->name = name;
+		this->Zusatz = Zusatz;
+	}
+
+	operator glm::vec2()
+	{
+		return glm::vec2(X, Y);
+	}
+
+	glm::vec2 getKoordinaten()
+	{
+		return  glm::vec2(X, Y);
+	}
 };
 
 class Höhlendaten : public BASISATTRIBUTE
@@ -239,6 +258,8 @@ public:
 
 vector<Höhlendaten> Höhlenentraces;
 vector<Missionsdaten> MISSIONSDATEN;
+vector<BASISATTRIBUTE> EXOTICknoten;
+vector<BASISATTRIBUTE> BOSSEknoten;
 
 #ifndef DEFINITIONEN
 	#define DEFINITIONEN
@@ -290,6 +311,8 @@ vector<Missionsdaten> MISSIONSDATEN;
 	uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen, texture1, texture2;
 #endif
 
+bool SQL_EINLESEN = false;
+
 class PRIVAT_MYSQL
 {
 	sql::Driver *driver;
@@ -328,7 +351,16 @@ public:
 		//please create database "quickstartdb" ahead of time
 		con->setSchema("world");
 
-		Preparestatments();
+		try
+		{
+			Preparestatments();
+			if (SQL_EINLESEN) Vorgefertigte_Daten_Einlesen();
+		}
+		catch (...)
+		{
+			Tabelle_erstellen();
+		}
+		
 	}
 	/* Aufräumen der Zeigerarythmetic (Ohne Smart Pointer = Speicherüberlauf "vorprogrammiert") */
 	~PRIVAT_MYSQL()
@@ -350,7 +382,7 @@ public:
 	void Preparestatments()
 	{
 		Daten_Einfügen_Höhle = con->prepareStatement(SQL_EINFÜGEN_IN + CAVEENTRACE + "(Name, Position_X, Position_Y, Grundriss, Erzdeposits) VALUES(?,?,?,?,?);");
-		Daten_Einfügen_Mission = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren) VALUES(?,?,?,?,?,?);");
+		Daten_Einfügen_Mission = con->prepareStatement(SQL_EINFÜGEN_IN + MISSIONEN + "(Position_X, Position_Y, Missionsname, Missionstyp, Missionsbeschreibung, Ren, Knoteninfo) VALUES(?,?,?,?,?,?,?);");
 
 		Alle_Daten_Lesen_Höhle = con->prepareStatement(SQL_WÄHLE_ALLE_VON + CAVEENTRACE + ";");
 		Alle_Daten_Lesen_Mission = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + ";");
@@ -371,17 +403,25 @@ public:
 		cout << "One row in " + CAVEENTRACE + " inserted." << endl;
 	}
 	/* Funktion zum Einfügen der Missiontexte - Es wird ein X/Y gespeichert um Mögliche unterschiedliche Missionsziele zu speichern */
-	void Daten_Einfügen(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0)
+	void Daten_Einfügen(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren = 0, int Knoteninfo = 0)
 	{
-		Daten_Einfügen_Mission->setDouble(1, X);
-		Daten_Einfügen_Mission->setDouble(2, Y);
-		Daten_Einfügen_Mission->setString(3, Missionsname);
-		Daten_Einfügen_Mission->setString(4, Missionstyp);
-		Daten_Einfügen_Mission->setString(5, Missionsbeschreibung);
-		Daten_Einfügen_Mission->setInt(6, Ren);
+		try
+		{
+			Daten_Einfügen_Mission->setDouble(1, X);
+			Daten_Einfügen_Mission->setDouble(2, Y);
+			Daten_Einfügen_Mission->setString(3, Missionsname);
+			Daten_Einfügen_Mission->setString(4, Missionstyp);
+			Daten_Einfügen_Mission->setString(5, Missionsbeschreibung);
+			Daten_Einfügen_Mission->setInt(6, Ren);
+			Daten_Einfügen_Mission->setInt(7, Knoteninfo);
 
-		Daten_Einfügen_Mission->execute();
-		cout << "One row in " + MISSIONEN + " inserted." << endl;
+			Daten_Einfügen_Mission->execute();
+			cout << "One row in " + MISSIONEN + " inserted." << endl;
+		}
+		catch (...)
+		{
+			cout << "Achtung schreibfehler, umlaute müssen in \"alt\" geschrieben werden." << endl;
+		}
 	}
 
 	/* Vorgefertigte Konfiguration */
@@ -400,12 +440,14 @@ public:
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 1");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 2");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 3");
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Exo", 0, 1);
 
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Landung", 75);
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Alpha.");
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Beta.");
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Gamma.");
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte das Uplink am Standort Delta ein.");
+		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Exo", 0, 1);
 
 		Daten_Einfügen(1, 1, "Argos", "Erkundung", "Erkunde Icarus - Landung");
 
@@ -416,6 +458,8 @@ public:
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Landung", 125);
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Folge der Spur des Raubtiers");
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Toete das Raubtier");
+		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Exo", 0, 1);
+		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Wolf", 0, 1);
 
 		Daten_Einfügen(1, 1, "Probelauf", "Expedition", "Expedition Canyons", 125);
 
@@ -550,7 +594,10 @@ public:
 		Daten_Einfügen(1, 1, "Pilgerreise", "Erkundung", "Ladnung");
 		Daten_Einfügen(1, 1, "Kryogen", "Forschung", "Ladnung");
 		Daten_Einfügen(1, 1, "Ausgegraben", "Forschung", "Ladnung");
-		Daten_Einfügen(1, 1, "Meridian", "Extraktion", "Ladnung");
+
+		Daten_Einfügen(1, 1, "Meridian", "Extraktion", "Ladnung", 250);
+		Daten_Einfügen(1, 1, "Meridian", "Extraktion", "Sammel die Ausruestung aus dem experimentalen Abbau Depo ein.");
+		Daten_Einfügen(1, 1, "Meridian", "Extraktion", "Sammel die Materialien und liefer die in das experimentale Abbau Depo.");
 	}
 
 	/* Basisfunktion sofern noch keine Tabelle erstellt worden ist */
@@ -564,7 +611,7 @@ public:
 
 		stmt->execute("DROP TABLE IF EXISTS " + MISSIONEN);
 		cout << "Finished dropping table " + MISSIONEN + " (if existed)" << endl;
-		stmt->execute("CREATE TABLE " + MISSIONEN + " (id serial PRIMARY KEY, Position_X FLOAT, Position_Y FLOAT, Missionsname VARCHAR(50), Missionstyp VARCHAR(50), Missionsbeschreibung VARCHAR(150), Ren INTEGER);");
+		stmt->execute("CREATE TABLE " + MISSIONEN + " (id serial PRIMARY KEY, Position_X FLOAT, Position_Y FLOAT, Missionsname VARCHAR(50), Missionstyp VARCHAR(50), Missionsbeschreibung VARCHAR(150), Ren INTEGER, Knoteninfo INTEGER);");
 		cout << "Finished creating table" + MISSIONEN << endl;
 
 		delete stmt;
@@ -572,7 +619,7 @@ public:
 		Vorgefertigte_Daten_Einlesen();
 	}
 
-	/* Dies ist eine Demo Funktion zum Außlesen aller Daten ungefiltert und unsortiert */
+	/* Demo Funktion - Dies ist eine Demo Funktion zum Außlesen aller Daten ungefiltert und unsortiert */
 	void Daten_Lesen()
 	{
 		result = Alle_Daten_Lesen_Höhle->executeQuery();
@@ -607,7 +654,6 @@ public:
 	/* Funktion zum Auslesen der eingetragenden Missionen (Gefiltert, jede Mission wird nur einmal aufgezählt) - Clean */
 	vector<pair<string, string>> Daten_Lesen_Missionsname()
 	{
-
 		vector<pair<string, string>> temp;
 
 		result = Alle_Daten_Lesen_Mission_Einmalig->executeQuery();
@@ -618,6 +664,7 @@ public:
 		return temp;
 	}
 
+	/* Funktion zum auslesen der Höhlenpositionen und deren Daten */
 	vector<glm::vec2> Hölenpositionen()
 	{
 		vector<glm::vec2> temp;
@@ -645,21 +692,31 @@ public:
 
 		while (result->next())
 		{
-			temp.push_back(Missionsdaten(result->getDouble(2), result->getDouble(3), result->getString(4).c_str(), result->getString(5).c_str(), result->getString(6).c_str(), result->getInt(7)));
-
-			temp.back().getX();
-
-			if (!Erste_Missionsinfo)
+			if (result->getInt(8) == 0)
 			{
-				cout << "Gelesen von Tabelle " + MISSIONEN + " = bei x=" << temp.back().getX() << " | y=" << temp.back().getY() << endl;
-				cout << "Die Mission \"" << temp.back().getName() << ": " << temp.back().getTyp() << "\"" << endl;
-				Erste_Missionsinfo = true;
-			}
+				temp.push_back(Missionsdaten(result->getDouble(2), result->getDouble(3), result->getString(4).c_str(), result->getString(5).c_str(), result->getString(6).c_str(), result->getInt(7)));
 
-			cout << "Die Aufgabe ist: \"" << temp.back().getBeschreibung() << "\"";
-			if (temp.back().getRen() != 0)
-				cout << " und als Belohnungen gibt es " << temp.back().getRen() << " Ren ";
-			cout << endl;
+				if (!Erste_Missionsinfo)
+				{
+					cout << "Gelesen von Tabelle " + MISSIONEN + " = bei x=" << temp.back().getX() << " | y=" << temp.back().getY() << endl;
+					cout << "Die Mission \"" << temp.back().getName() << ": " << temp.back().getTyp() << "\"" << endl;
+					Erste_Missionsinfo = true;
+				}
+
+				cout << "Die Aufgabe ist: \"" << temp.back().getBeschreibung() << "\"";
+				if (temp.back().getRen() != 0)
+					cout << " und als Belohnungen gibt es " << temp.back().getRen() << " Ren ";
+				cout << endl;
+			}
+			else if (result->getInt(8) == 1)
+			{
+				EXOTICknoten.push_back(BASISATTRIBUTE(result->getDouble(2), result->getDouble(3), 2, result->getString(4).c_str(), result->getString(6).c_str()));
+			}
+			else if (result->getInt(8) == 2)
+			{
+				BOSSEknoten.push_back(BASISATTRIBUTE(result->getDouble(2), result->getDouble(3), 3, result->getString(4).c_str(), result->getString(6).c_str()));
+			}
+			
 		}
 
 		Einzel_Daten_Lesen_Mission->close();
@@ -673,6 +730,8 @@ public:
 		switch (ID->Index)
 		{
 		case 1:
+		case 2:
+		case 3:
 			pstmt = con->prepareStatement("UPDATE " + MISSIONEN + " SET Position_X = ?, Position_Y = ? WHERE Missionsname = ? AND Missionsbeschreibung = ?");
 			break;
 		case 0:
@@ -684,7 +743,7 @@ public:
 		pstmt->setDouble(1, ID->X);
 		pstmt->setDouble(2, ID->Y);
 		pstmt->setString(3, ID->name);
-		if(ID->Index == 1) 
+		if(ID->Index == 1 || ID->Index == 2 || ID->Index == 3)
 			pstmt->setString(4, ID->Zusatz);
 					
 		pstmt->executeQuery();
@@ -1174,6 +1233,28 @@ void Objektanwahl()
 				return;
 			}
 		}
+
+		for (uint i = 0; i < EXOTICknoten.size(); i++)
+		{
+			if (compare(T0, &EXOTICknoten[i]))
+			{
+				Fensterdaten.ID = &EXOTICknoten[i];
+				if (Fensterdaten.ID != 0)
+					cout << Fensterdaten.ID->name << endl;
+				return;
+			}
+		}
+
+		for (uint i = 0; i < BOSSEknoten.size(); i++)
+		{
+			if (compare(T0, &MISSIONSDATEN[i]))
+			{
+				Fensterdaten.ID = &MISSIONSDATEN[i];
+				if (Fensterdaten.ID != 0)
+					cout << Fensterdaten.ID->name << endl;
+				return;
+			}
+		}
 	}
 	/* Bereich, falls kein Objekt angewählt wurde*/
 	if (Fensterdaten.ID != 0)
@@ -1401,6 +1482,8 @@ int main()
 	Missionsliste = SQL.Daten_Lesen_Missionsname();
 	Entrace.update(SQL.Hölenpositionen());
 	Mission.update(vector<glm::vec2>(0));
+	Exospots.update(vector<glm::vec2>(0));
+	Bossspots.update(vector<glm::vec2>(0));
 	
 	texture1 = loadTexture("Resourcen/HQ_Map.png");
 	texture2 = loadTexture("Resourcen/HQ_Map.png");
@@ -1436,16 +1519,30 @@ int main()
 		// input
 		// -----
 		processInput(window);
-			   		 
-		vector<glm::vec2> Tempo;
-		for (uint i = 0; i < Höhlenentraces.size(); i++)
-			Tempo.push_back(Höhlenentraces[i]);
-		Entrace.update(Tempo);
+		
+		/* Updaten der Zeichnungarrays */
+		{
+			vector<glm::vec2> Tempo;
+			for (uint i = 0; i < Höhlenentraces.size(); i++)
+				Tempo.push_back(Höhlenentraces[i]);
+			Entrace.update(Tempo);
 
-		Tempo.clear();
-		for (uint i = 0; i < MISSIONSDATEN.size(); i++)
-			Tempo.push_back(MISSIONSDATEN[i]);
-		Mission.update(Tempo);
+			Tempo.clear();
+			for (uint i = 0; i < MISSIONSDATEN.size(); i++)
+				Tempo.push_back(MISSIONSDATEN[i]);
+			Mission.update(Tempo);
+
+			Tempo.clear();
+			for (uint i = 0; i < EXOTICknoten.size(); i++)
+				Tempo.push_back(EXOTICknoten[i]);
+			Exospots.update(Tempo);
+
+			Tempo.clear();
+			for (uint i = 0; i < BOSSEknoten.size(); i++)
+				Tempo.push_back(BOSSEknoten[i]);
+			Bossspots.update(Tempo);
+		}
+		
 		
 		Cam.view = glm::translate(Cam.view, glm::vec3(0.0f, 0.0f, -3.0f));
 		Cam.projection = glm::perspective(glm::radians(45.0f), Fensterdaten.getX() / Fensterdaten.getY(), 0.1f, 100.0f);
@@ -1469,6 +1566,8 @@ int main()
 				{
 					Missionsliste = SQL.Daten_Lesen_Missionsname();
 					MISSIONSDATEN.clear();
+					EXOTICknoten.clear();
+					BOSSEknoten.clear();
 					Mission_Ausgewählt = false;
 				}
 			}
@@ -1518,11 +1617,7 @@ int main()
 						"CTRL+A or double-click to select all.\n"
 						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n\n"
-						"PROGRAMMER:\n"
-						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-						"in imgui_demo.cpp).");
+						"ESCAPE to revert.\n");
 
 					static char Missionstyp[128] = "Hello, world!";
 					ImGui::InputText("Missionstyp", Missionstyp, IM_ARRAYSIZE(Missionstyp));
@@ -1533,11 +1628,7 @@ int main()
 						"CTRL+A or double-click to select all.\n"
 						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n\n"
-						"PROGRAMMER:\n"
-						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-						"in imgui_demo.cpp).");
+						"ESCAPE to revert.\n");
 
 					static char Missionsbeschreibung[512] = "Hello, world!";
 					ImGui::InputText("Missionsbeschreibung", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));
@@ -1548,11 +1639,7 @@ int main()
 						"CTRL+A or double-click to select all.\n"
 						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n\n"
-						"PROGRAMMER:\n"
-						"You can use the ImGuiInputTextFlags_CallbackResize facility if you need to wire InputText() "
-						"to a dynamic string type. See misc/cpp/imgui_stdlib.h for an example (this is not demonstrated "
-						"in imgui_demo.cpp).");
+						"ESCAPE to revert.\n");
 
 					static int ren = 123;
 					ImGui::InputInt("Ren", &ren);
@@ -1598,19 +1685,10 @@ int main()
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(name,ix, iy, str0, ic); Einfügen = false;
+						SQL.Daten_Einfügen(name, ix, iy, str0, ic); Einfügen = false;
 					}
 				}
 			}
-
-			//if (ImGui::Button("SQL Lesen"))
-			//{
-			//	vector<glm::vec2> Temp = SQL.Hölenpositionen();
-			//	Entrace.update(Temp);
-			//}
-
-			int x = Höhlenentraces[0].getX();
-			int y = Höhlenentraces[0].getY();
 
 			if (Fensterdaten.ID != 0)
 			{
@@ -1629,10 +1707,10 @@ int main()
 						"CTRL+Z,CTRL+Y undo/redo.\n"
 						"ESCAPE to revert.\n");
 
-					static float px = Fensterdaten.ID ->X;
+					static float px = Fensterdaten.ID->X;
 					ImGui::InputFloat("X Position", &px);
 
-					static float py = Fensterdaten.ID ->Y;
+					static float py = Fensterdaten.ID->Y;
 					ImGui::InputFloat("Y Position", &py);
 
 					if (ImGui::Button("Updaten"))
@@ -1642,7 +1720,6 @@ int main()
 					}
 				}
 			}
-				
 
 			if (ImGui::Button("SQL Loeschen"))
 				Löschen = !Löschen;
@@ -1704,31 +1781,31 @@ int main()
 		ImGui::Render();
 		}
 
-		// render
-		// ------
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-		
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		Map.Render(&ourShader,&texture1,&texture2);
-		Entrace.Render(&instanzer, Blauer_Tropfen, Blauer_Tropfen);
-		Mission.Render(&instanzer, Gelber_Tropfen, Gelber_Tropfen);
-
-		//Bossspots.Render(&instanzer, Roter_Tropfen, Roter_Tropfen);
-		//Exospots.Render(&instanzer, Schwarzer_Tropfen, Schwarzer_Tropfen);
-		
-
+		/* Standard Renderroutine */
 		{
-		Schrift.aktivieren();
+			glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT);
+		
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		Schrift.RenderText(shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
-		Schrift.RenderText(shader, "(C) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
+			Map.Render(&ourShader,&texture1,&texture2);
+			Entrace.Render(&instanzer, Blauer_Tropfen, Blauer_Tropfen);
+			Mission.Render(&instanzer, Gelber_Tropfen, Gelber_Tropfen);
+			Exospots.Render(&instanzer, Schwarzer_Tropfen, Schwarzer_Tropfen);
+			Bossspots.Render(&instanzer, Roter_Tropfen, Roter_Tropfen);
+		}
 
-		Schrift.deaktivieren();
+		/* Renderroutine von Zusätzlichen Texten */
+		{
+			Schrift.aktivieren();
 
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+			Schrift.RenderText(shader, "This is sample text", 25.0f, 25.0f, 1.0f, glm::vec3(0.5, 0.8f, 0.2f));
+			Schrift.RenderText(shader, "(C) LearnOpenGL.com", 540.0f, 570.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f));
+
+			Schrift.deaktivieren();
+
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		}	
 
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

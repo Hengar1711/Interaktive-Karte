@@ -2,6 +2,10 @@
 	Liezensierungen
 
 		<a href="https://de.vecteezy.com/gratis-vektor/tropfen">Tropfen Vektoren von Vecteezy</a>
+
+	Bibliotheken:
+
+		glfw 3.3.6
 */
 
 #ifndef INCLUDES
@@ -312,6 +316,7 @@ vector<BASISATTRIBUTE> BOSSEknoten;
 #endif
 
 bool SQL_EINLESEN = false;
+bool Interface_Hovered;
 
 class PRIVAT_MYSQL
 {
@@ -459,7 +464,7 @@ public:
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Folge der Spur des Raubtiers");
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Toete das Raubtier");
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Exo", 0, 1);
-		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Wolf", 0, 1);
+		Daten_Einfügen(4.4, -16.0402, "Todesliste", "Vernichtung", "Wolf", 0, 2);
 
 		Daten_Einfügen(1, 1, "Probelauf", "Expedition", "Expedition Canyons", 125);
 
@@ -1247,9 +1252,9 @@ void Objektanwahl()
 
 		for (uint i = 0; i < BOSSEknoten.size(); i++)
 		{
-			if (compare(T0, &MISSIONSDATEN[i]))
+			if (compare(T0, &BOSSEknoten[i]))
 			{
-				Fensterdaten.ID = &MISSIONSDATEN[i];
+				Fensterdaten.ID = &BOSSEknoten[i];
 				if (Fensterdaten.ID != 0)
 					cout << Fensterdaten.ID->name << endl;
 				return;
@@ -1272,7 +1277,7 @@ inline void processInput(GLFWwindow *window)
 		glfwSetWindowShouldClose(window, true);
 
 	/* Abschnitt der Kartnebewegung mit der Maus */
-	if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID == 0)
+	if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID == 0 && !Interface_Hovered)
 	{
 		double N_X, N_Y, CX, CY;
 
@@ -1295,7 +1300,7 @@ inline void processInput(GLFWwindow *window)
 			Cam.C.y = 20.0;
 		
 	}
-	else if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID != 0)
+	else if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID != 0 && !Interface_Hovered)
 	{
 		double N_X, N_Y, CX, CY;
 
@@ -1559,7 +1564,7 @@ int main()
 		// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
 		{
 			ImGui::Begin("Interface Interaktive Map");                          // Create a window called "Hello, world!" and append into it.
-
+			Interface_Hovered = ImGui::IsWindowHovered();
 			if (Mission_Ausgewählt)
 			{
 				if (ImGui::ArrowButton("##left", ImGuiDir_Left)) //ImGui::SameLine(0.0f, spacing);

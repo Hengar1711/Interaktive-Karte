@@ -1,12 +1,14 @@
 /* 
 	Liezensierungen
 
-		<a href="https://de.vecteezy.com/gratis-vektor/tropfen">Tropfen Vektoren von Vecteezy</a>
-
+		<a href="https://de.vecteezy.com/gratis-vektor/tropfen">Tropfen Vektoren von Vecteezy</a>	
+*/
+/*
 	Bibliotheken:
 
 		glfw 3.3.6
 */
+
 
 #ifndef INCLUDES
 	#define INCLUDES
@@ -55,7 +57,8 @@
 #pragma warning (disable: 26451)    // [Static Analyzer] Arithmetic overflow : Using operator 'xxx' on a 4 byte value and then casting the result to a 8 byte value. Cast the value to the wider type before calling operator 'xxx' to avoid overflow(io.2).
 #endif
 
-/*	WIKI
+/*	
+	WIKI
 	Problem Stellung: 
 			- Die String werden beim Dritten %s nicht Ordnungsgemäß an die Konsole übergeben. 
 			Mögliche Idee, Prüfen der Umgebungsvariablen der Konsolen
@@ -80,8 +83,15 @@
 			neue markeirungsteine setzten im fenster: offen
 
 
+			"Verbannen" der SQl Tabelle erstellen
+			Nach der Auswahl der Mission die "Knoten" Tabelle mit IMGUI ausgeben
+				Sollte man auf "den" Knoten klicken >> Springe mit der Karte zum Mittelpunkt
+				Wähle Mithilfe der Anwahl den Knoten aus
 
+				Einfügen sobald "eingelogt"
 */
+
+/* Klasse für die Vereinfachte X/Y Koordinaten innerhalb des Programms - bei Erweiterung sollte es auf glm::vec2 Basis aufgebaut werden*/
 class Koordinaten
 {
 	
@@ -93,7 +103,7 @@ public:
 	float getX() { return X; };
 	float getY() { return Y; };
 };
-
+/* Klasse für den Namen eines Spiels - Mithilfe desses ist es möglich über mehere strings zu Navigieren*/
 class NAME
 {
 public:
@@ -103,7 +113,7 @@ public:
 	NAME operator() (string name) { this->name = name; return *this; };
 	string getName() { return name; };
 };
-
+/* Klasse zur Speicherung der Maus Steuerinformationen um im Programm "vereinfacht" drauf zuzugreifen */
 class MAUS
 {
 public:
@@ -120,7 +130,7 @@ public:
 	glm::mat4 view = glm::mat4(1.0f); 
 	glm::mat4 projection = glm::mat4(1.0f);
 } Cam;
-
+/* Klassen für die Klassenvererbung von Koordinaten und Name - Zusammengefaster/Polymorpher Zugriff zu den "Targets" */
 class BASISATTRIBUTE : public Koordinaten, public NAME
 {
 public:
@@ -146,12 +156,11 @@ public:
 		return  glm::vec2(X, Y);
 	}
 };
-
+/* Klasse für die Zusammenfassung der Höhlendaten und verbinden mit der Basisanwahl */
 class Höhlendaten : public BASISATTRIBUTE
 {
 
 public:
-	//string name;
 	string Grundriss;
 	int ErzknotenAnzahl;
 	Höhlendaten(string name, int X, int Y, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
@@ -178,8 +187,7 @@ public:
 		return glm::vec2(X, Y);
 	}
 };
-
-/* Die Koordinaten sollten für den Missionsbeginn beim Landungschiff stehen */
+/* Klasse für die Missionspunkte - Empfohlen - Ladungspunkt die Belohnungen zu übergeben.  Klasse zur Verbindung mit der Basisanwahl*/
 class Missionsdaten : public BASISATTRIBUTE
 {
 	string Missionstyp;
@@ -236,7 +244,7 @@ public:
 		return Belohnung_Ren;
 	}
 };
-
+/* Klasse für die Fensterdaten - Größe des Fensters sowie "anwahl" */
 class window: public Koordinaten
 {
 public:
@@ -250,7 +258,7 @@ public:
 	glm::vec4 viewport = { 0,0,X,Y };
 
 
-	BASISATTRIBUTE *ID;
+	BASISATTRIBUTE *ID;	/* Variable für die Basisanwahl */
 
 	void operator() (int X, int Y) 
 	{
@@ -259,11 +267,6 @@ public:
 		viewport = { 0,Y,X,-Y };
 	}	
 }Fensterdaten;
-
-vector<Höhlendaten> Höhlenentraces;
-vector<Missionsdaten> MISSIONSDATEN;
-vector<BASISATTRIBUTE> EXOTICknoten;
-vector<BASISATTRIBUTE> BOSSEknoten;
 
 #ifndef DEFINITIONEN
 	#define DEFINITIONEN
@@ -308,16 +311,21 @@ vector<BASISATTRIBUTE> BOSSEknoten;
 		unsigned int Advance;   // Horizontal offset to advance to next glyph
 	};
 	map<GLchar, Character> Characters;
-	
-	vector<pair<string,string>> Missionsliste;
-	string Missionsnamensuche;	
-
 	uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen, texture1, texture2;
+
+	vector<pair<string,string>> Missionsliste;	/* Datenspeicher für die Missionsauswahl */
+	vector<Höhlendaten> Höhlenentraces;			/* Datenspeicher für die "vorhandenen" Höhleneingänge */
+	vector<Missionsdaten> MISSIONSDATEN;		/* Datenspeicher für die "vorhandenen" Missionsdaten */
+	vector<BASISATTRIBUTE> EXOTICknoten;		/* Datenspeicher für die "vorhandenen" Exotic Spots */
+	vector<BASISATTRIBUTE> BOSSEknoten;			/* Datenspeicher für die "vorhandenen" Bosse */
 #endif
 
-bool SQL_EINLESEN = false;
-bool Interface_Hovered;
+bool SQL_EINLESEN = false;				/* Bit zur Steuerung, ob beim Start das SQL eingelesen werden soll */
+bool Interface_Hovered;					/* Bit zur Steuerung, das sobald dass Interface "angewählt" ist, nicht die Karte "bewegt" wird */
+bool Statusanzeige = false;				/* Bit zur Steuerung, dass die Anzeige nur "einaml" pro klick stattfindet */
+bool EINGELOGGT = true;
 
+/* Klasse für die Datenspeicherung innerhalb eines SQL Systems */
 class PRIVAT_MYSQL
 {
 	sql::Driver *driver;
@@ -445,14 +453,14 @@ public:
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 1");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 2");
 		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Scanne Ort 3");
-		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Exo", 0, 1);
+		Daten_Einfügen(1, 1, "Livewire", "Gelaende Scan", "Exotic", 0, 1);
 
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Landung", 75);
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Alpha.");
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Beta.");
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte die Geostation am Standort Gamma.");
 		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Setzte das Uplink am Standort Delta ein.");
-		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Exo", 0, 1);
+		Daten_Einfügen(1, 1, "Grabstein", "Geo Forschung", "Exotic", 0, 1);
 
 		Daten_Einfügen(1, 1, "Argos", "Erkundung", "Erkunde Icarus - Landung");
 
@@ -463,7 +471,7 @@ public:
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Landung", 125);
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Folge der Spur des Raubtiers");
 		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Toete das Raubtier");
-		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Exo", 0, 1);
+		Daten_Einfügen(1, 1, "Todesliste", "Vernichtung", "Exotic", 0, 1);
 		Daten_Einfügen(4.4, -16.0402, "Todesliste", "Vernichtung", "Wolf", 0, 2);
 
 		Daten_Einfügen(1, 1, "Probelauf", "Expedition", "Expedition Canyons", 125);
@@ -922,6 +930,7 @@ public:
 	}
 };
 
+/* Klasse zum Zeichnen der Karte */
 class MAP
 {
 	uint VBO, VAO, EBO;
@@ -1015,6 +1024,7 @@ public:
 	}
 };
 
+/* Klasse für die Knotenpunktanzeige - 90% Identisch mit "Map" */
 class Objektmarker
 {
 	uint VBO, VAO, EBO;
@@ -1023,19 +1033,8 @@ class Objektmarker
 public:
 	Objektmarker()
 	{
-		int index = 0;
-		float offset = 0.1f;
-		for (int y = -10; y < 10; y += 2)
-		{
-			for (int x = -10; x < 10; x += 2)
-			{
-				glm::vec2 translation;
-				translation.x = (float)x / 1.0f + offset;
-				translation.y = (float)y / 1.0f + offset;
-				index++;
-				translations.push_back(translation);
-			}
-		}
+		glm::vec2 translation(0);
+		translations.push_back(translation);
 
 		// store instance data in an array buffer		
 		glGenBuffers(1, &instanceVBO);
@@ -1129,7 +1128,7 @@ public:
 	}
 };
 
-// Immer wenn die Fenstergröße geändert wird, führe diesen Callback aus.
+/* Callback zur Abfrage der Fenstergröße */
 inline void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	// make sure the viewport matches the new window dimensions; note that width and 
@@ -1138,27 +1137,31 @@ inline void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	Fensterdaten(width, height);
 }
 
-// Immer wenn das Mausrad gedreht wird, führe diesen Callback aus.
+/* Callback zur Abfrage des Mausrades*/
 inline void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	Cam.C.z += yoffset;
+	if (!Interface_Hovered)
+	{
+		Cam.C.z += yoffset;
+	}
 };
 
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+/* Callback für die Abfrage der Maussteuerung und Übertragen auf den Internen Speicher */
+inline void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
 		Fensterdaten.Maus.Is_Links_Klickt = GLFW_PRESS;
 	}
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action != GLFW_PRESS)
+	else if (button == GLFW_MOUSE_BUTTON_LEFT && action != GLFW_PRESS)
 	{
 		Fensterdaten.Maus.Is_Links_Klickt = 0;
 	}
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 	{
 		Fensterdaten.Maus.Is_Rechts_Klickt = GLFW_PRESS;
 	}
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action != GLFW_PRESS)
+	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action != GLFW_PRESS)
 	{
 		Fensterdaten.Maus.Is_Rechts_Klickt = 0;
 	}
@@ -1169,9 +1172,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	}
 }
 
-bool Statusanzeige = false;
-
-glm::vec3 test(glm::mat4 Projection)
+/* Funktion zur Umwandlung der X-Y Koordinaten des "Displays" in 3D Weltkoordinaten */
+inline glm::vec3 Coursor_Cast(glm::mat4 Projection)
 {
 	glReadBuffer(GL_FRONT);
 	glReadPixels(Fensterdaten.Maus.X, Fensterdaten.Maus.Y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &Fensterdaten.Maus.Z);
@@ -1197,7 +1199,8 @@ glm::vec3 test(glm::mat4 Projection)
 	return t1;
 }
 
-bool compare(glm::vec3 Cursor, BASISATTRIBUTE *Objekt)
+/* Der AABB vergleich zur Anwahl */
+inline bool compare(glm::vec3 Cursor, BASISATTRIBUTE *Objekt)
 {
 	/* Wenn das X und Y  innerhalb des Bereichs liegt - gebe den namen zurück */
 	if (Cursor.x >= (Objekt ->getX() + (-0.1)) && Cursor.x <= (Objekt->getX() + (0.1)) &&
@@ -1206,12 +1209,12 @@ bool compare(glm::vec3 Cursor, BASISATTRIBUTE *Objekt)
 	return false;
 }
 
-void Objektanwahl()
+/* Die Maus Anwahlfunktion, mithilfe von Hovering */
+inline void Objektanwahl()
 {
 	/* Daten des Coursors im 3D Raum, für den vergleich zur Anwahl */
-	glm::vec3 T0 = test(Cam.projection);
+	glm::vec3 T0 = Coursor_Cast(Cam.projection);
 
-	/* Bit zur Steuerung, dass die Anzeige nur "einaml" pro klick stattfindet */
 	Statusanzeige = true;
 
 	if (Fensterdaten.ID == 0)
@@ -1269,7 +1272,7 @@ void Objektanwahl()
 	Fensterdaten.ID = 0;
 }
 
-// Verarbeite hier sämtlichen Input, zum trennen von Renderdaten und Tastertur
+/* Verarbeiten der Tastertur und Mauseingaben - Abtrennung zum Rendering */
 inline void processInput(GLFWwindow *window)
 {
 	// Die Default Steuerung zum Schließen des Fensters
@@ -1337,27 +1340,33 @@ inline void processInput(GLFWwindow *window)
 		Statusanzeige = false;
 	}
 
-	// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
-	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		if (Cam.C.y > -20.0)
-			Cam.C.y -= 0.001;
-	}
-	// Die Steuerung um sich auf der Karte nach Unten zu bewegen.
-	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		if (Cam.C.y < 20.0)
-
-			Cam.C.y += 0.001;
-	}
-	// Die Steuerung um sich auf der Karte nach Rechts zu bewegen.
-	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-		if (Cam.C.x > -20.0)
-			Cam.C.x -= 0.001;
-	}
-	// Die Steuerung um sich auf der Karte nach Links zu bewegen.
-	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-		if (Cam.C.x < 20.0)
-			Cam.C.x += 0.001;
-	}
+	/* Die Tastertur-Steuerung um sich auf der Karte nach */
+	{
+		/* Oben zu bewegen. */
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) 
+		{
+			if (Cam.C.y > -20.0)
+				Cam.C.y -= 0.001;
+		}
+		/* Unten zu bewegen. */
+		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) 
+		{
+			if (Cam.C.y < 20.0)
+				Cam.C.y += 0.001;
+		}
+		/* Rechts zu bewegen. */
+		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) 
+		{
+			if (Cam.C.x > -20.0)
+				Cam.C.x -= 0.001;
+		}
+		/* Links zu bewegen. */
+		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) 
+		{
+			if (Cam.C.x < 20.0)
+				Cam.C.x += 0.001;
+		}
+	}	
 }
 
 inline uint loadTexture(char const * path)
@@ -1407,8 +1416,7 @@ inline void HelpMarker(const char* desc)
 
 int main()
 {
-	// glfw: initialize and configure
-	// ------------------------------
+	/* Initialisieren und Konfigurieren von GLFW */
 	const char* glsl_version = "#version 130";
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -1419,9 +1427,8 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-	// glfw window creation
-	// --------------------
-	GLFWwindow* window = glfwCreateWindow(Fensterdaten.getX(), Fensterdaten.getY(), "LearnOpenGL", NULL, NULL);
+	/* Fenster Erstellung mithilfe von GLFW */
+	GLFWwindow* window = glfwCreateWindow(Fensterdaten.getX(), Fensterdaten.getY(), "Interaktive Karte", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -1429,20 +1436,21 @@ int main()
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
-
+		
+	/* Setzten der Callback Funktionen, zum erhalten der Daten */
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
-
-	// glad: load all OpenGL function pointers
-	// ---------------------------------------
+		
+	/* Lade mithilfe von Glad alle Opengl Funktionszeiger */
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		std::cout << "Failed to initialize GLAD" << std::endl;
 		return -1;
 	}	
+		
 
-	//PRIVAT_MYSQL SQL;
+	/* Initialisieren der Schleifen/Programmnotwengien Variablen */
 	FREETYPE Schrift;
 	MAP Map;
 	Objektmarker Entrace;   /* Marker für Höhleneingänge */
@@ -1461,7 +1469,6 @@ int main()
 	// compile and setup the shader
 	// ----------------------------
 	Shader shader("text.vs", "text.fs");
-	//shader.use();
 
 	Schrift.Initialisieren();
 
@@ -1505,7 +1512,6 @@ int main()
 	ourShader.setInt("texture1", 0);
 	ourShader.setInt("texture2", 1);
 
-	static bool Einfügen = false;
 	static bool Updaten = false;
 	static bool Löschen = false;
 	static bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
@@ -1521,8 +1527,7 @@ int main()
 	while (!glfwWindowShouldClose(window))
 	{
 		{
-		// input
-		// -----
+		/* Tastertur und Mauseingaben */
 		processInput(window);
 		
 		/* Updaten der Zeichnungarrays */
@@ -1557,14 +1562,14 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		// 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+		/* Dies ist die Ausführung der ImGui::ShowDemoWindow - Dies dient als Dokumentation mithilfe von Beispiele */
 		if (show_demo_window)
 			ImGui::ShowDemoWindow(&show_demo_window);
 
-		// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+		/* Nütze Beginn und End wie eine Klammer und führe innerhalb das selbst erstellte Fenster aus - mit dem ImGui Namespace*/
 		{
-			ImGui::Begin("Interface Interaktive Map");                          // Create a window called "Hello, world!" and append into it.
-			Interface_Hovered = ImGui::IsWindowHovered();
+			ImGui::Begin("Interface Interaktive Map");                         /* Das Klammer aus für das eigene Interface mit Namensübergabe */
+			Interface_Hovered = ImGui::IsWindowHovered() || ImGui::IsAnyItemHovered();
 			if (Mission_Ausgewählt)
 			{
 				if (ImGui::ArrowButton("##left", ImGuiDir_Left)) //ImGui::SameLine(0.0f, spacing);
@@ -1577,43 +1582,102 @@ int main()
 				}
 			}
 
-			ImGui::Text("Dies ist die Steuerung fuer\ndie Interaktive Karte.");               // Display some text (you can use a format strings too)
-			
-			
+			/* Ausgabe des Angewählten Zieles */
 			if (Fensterdaten.ID != 0)
 			{
-				std::ostringstream ss;
-				ImGui::Text("Angewaehlt ist der Punkt");				
-				ss << Fensterdaten.ID->X << "," << Fensterdaten.ID->Y << endl;
+				/* Ausgabe Deklarieren */
+				std::ostringstream ss;	
+
 				if (Fensterdaten.ID->Index == 1)
-					ss << "dies ist aus der Mission" << Fensterdaten.ID->name << " die Aufgabe" << Fensterdaten.ID->Zusatz;
-				else
-					ss << "dies ist die Hoehle '" << Fensterdaten.ID->name << "'" << endl;
-				ImGui::Text(ss.str().c_str());               // Display some text (you can use a format strings too)
-
-			}
-
-			ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-
-			if (ImGui::Button("SQL Tabelle"))
-				SQL.Tabelle_erstellen();
-
-			if (ImGui::Button("SQL Einfuegen"))
-				Einfügen = !Einfügen;
-			if (Einfügen)
-			{
-				if (!Mission_Caveentrace)
 				{
-					if (ImGui::Button("Einfuegen ist Inventory"))
-						Mission_Caveentrace = true;
+					ss << "Angewaehlt ist der Punkt " << endl << Fensterdaten.ID->X << "," << Fensterdaten.ID->Y << endl;
+					ss << "Dies ist aus die Aufgabe " << Fensterdaten.ID->Zusatz;
+				}					
+				else if (Fensterdaten.ID->Index == 2)
+				{
+					ss << "Angewaehlt ist der Exoticspot " << endl << Fensterdaten.ID->X << "," << Fensterdaten.ID->Y << endl;
+				}
+				else if (Fensterdaten.ID->Index == 3)
+				{
+					ss << "Angewaehlt ist der Bossspot " << endl << Fensterdaten.ID->X << "," << Fensterdaten.ID->Y << endl;
 				}
 				else
-					if (ImGui::Button("Einfuegen ist Caveentrace"))
-						Mission_Caveentrace = false;
-
-				if (!Mission_Caveentrace)
 				{
-					static char Missionname[128] = "Hello, world!";
+					ss << "Angewaehlt ist die Hoehle '" << Fensterdaten.ID->name << "'" << endl << "bei " << Fensterdaten.ID->X << "," << Fensterdaten.ID->Y << endl;
+				}
+				
+				/* Ausgabe anhand des Index */
+				ImGui::Text(ss.str().c_str());
+			}
+
+			/* Ausgabe der Frame Zeit */
+			ImGui::Text("Durchschnittliche Framezeit:\n%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+			
+			/* Ansteuerung der Auswahl - Unterscheidung zwischen Knoten und Missionen */
+			if (Mission_Ausgewählt)
+			{
+				ostringstream ss; 
+				ss << MISSIONSDATEN[0].getName() << ": " << MISSIONSDATEN[0].getTyp();
+				ImGui::Text(ss.str().c_str()); ImGui::Text("Waehle das Ziel aus: ");
+			}
+			if (!Mission_Ausgewählt){ImGui::Text("Waehle die Mission aus: ");}
+
+			/* Um etwas "Hinzu zufügen" muss man eingeloggt sein			-- Hinzufügen Clean*/
+			if (EINGELOGGT)
+			{
+				/* Das Einfügen wird mithilfe einer Auswahlbox durchgeführt, welche Abhängig der stands angepasst wird */
+				static int Einfügen_current = 0;
+				/* Auswahl zwischen Mission angewählt oder nicht */
+				if (!Mission_Ausgewählt)
+				{
+					const char* Einfügen[] = { "Nichts einfuegen", "Hoehle einfuegen", "Mission einfuegen" };
+					ImGui::Combo("combo", &Einfügen_current, Einfügen, IM_ARRAYSIZE(Einfügen));
+				}
+				else
+				{
+					const char* Einfügen[] = { "Nichts einfuegen", "Hoehle einfuegen", "Mission Ziel einfuegen", "Exo Spot einfuegen", "Boss Spot einfuegen" };
+					ImGui::Combo("combo", &Einfügen_current, Einfügen, IM_ARRAYSIZE(Einfügen));
+				};
+
+				
+				/* Hoehle einfuegen */
+				if (Einfügen_current == 1)
+				{
+					static char name[128] = "Name der Hoehle";
+					ImGui::InputText("Name der Hoehle", name, IM_ARRAYSIZE(name));
+					ImGui::SameLine(); HelpMarker(
+						"USER:\n"
+						"Hold SHIFT or use mouse to select text.\n"
+						"CTRL+Left/Right to word jump.\n"
+						"CTRL+A or double-click to select all.\n"
+						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+						"CTRL+Z,CTRL+Y undo/redo.\n"
+						"ESCAPE to revert.\n");
+
+					static char Grundriss[128] = "Kleine Pilzhoehle";
+					ImGui::InputText("Grundriss", Grundriss, IM_ARRAYSIZE(Grundriss));
+					ImGui::SameLine(); HelpMarker(
+						"USER:\n"
+						"Hold SHIFT or use mouse to select text.\n"
+						"CTRL+Left/Right to word jump.\n"
+						"CTRL+A or double-click to select all.\n"
+						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+						"CTRL+Z,CTRL+Y undo/redo.\n"
+						"ESCAPE to revert.\n");
+
+					static int ic = 2;
+					ImGui::InputInt("Anzahl", &ic);
+
+					if (ImGui::Button("Einfuegen"))
+					{
+						Höhlenentraces.push_back(Höhlendaten(name, (-1 * Cam.C.x), (-1 * Cam.C.y), Grundriss, ic));
+						SQL.Daten_Einfügen(name, (-1 * Cam.C.x), (-1 * Cam.C.y), Grundriss, ic); Einfügen_current = 0;
+					}
+				}
+				/* Mission einfuegen - Einzugebende Parameter: Name,Typ und Ren | Fertige Parameter: Beschreibung, Koordinaten, Knotentyp */
+				else if (Einfügen_current == 2 && !Mission_Ausgewählt)
+				{
+					static char Missionname[128] = "Missionsname";
 					ImGui::InputText("Missionsname", Missionname, IM_ARRAYSIZE(Missionname));
 					ImGui::SameLine(); HelpMarker(
 						"USER:\n"
@@ -1624,19 +1688,8 @@ int main()
 						"CTRL+Z,CTRL+Y undo/redo.\n"
 						"ESCAPE to revert.\n");
 
-					static char Missionstyp[128] = "Hello, world!";
+					static char Missionstyp[128] = "Missionstyp";
 					ImGui::InputText("Missionstyp", Missionstyp, IM_ARRAYSIZE(Missionstyp));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-
-					static char Missionsbeschreibung[512] = "Hello, world!";
-					ImGui::InputText("Missionsbeschreibung", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));
 					ImGui::SameLine(); HelpMarker(
 						"USER:\n"
 						"Hold SHIFT or use mouse to select text.\n"
@@ -1649,18 +1702,17 @@ int main()
 					static int ren = 123;
 					ImGui::InputInt("Ren", &ren);
 
-					static int exo = 123;
-					ImGui::InputInt("Exotics", &exo);
-
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(1, 1, Missionname, Missionstyp, Missionsbeschreibung, ren); Einfügen = false;
+						Missionsliste.push_back({ Missionname, Missionstyp });
+						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), Missionname, Missionstyp, "Ladnung", ren); Einfügen_current = false;
 					}
 				}
-				else
+				/* Missions Ziel einfuegen  - Einzugebende Parameter: Beschreibung | Fertige Parameter: Name, Typ, Ren, Koordinaten, Knotentyp */
+				else if (Einfügen_current == 2 && Mission_Ausgewählt)
 				{
-					static char name[128] = "Kleine Pilzhoehle";
-					ImGui::InputText("Name", name, IM_ARRAYSIZE(name));
+					static char Missionsbeschreibung[512] = "Zielbeschreibung";
+					ImGui::InputText("Zielbeschreibung", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));
 					ImGui::SameLine(); HelpMarker(
 						"USER:\n"
 						"Hold SHIFT or use mouse to select text.\n"
@@ -1669,9 +1721,29 @@ int main()
 						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 						"CTRL+Z,CTRL+Y undo/redo.\n"
 						"ESCAPE to revert.\n");
-
-					static char str0[128] = "Kleine Pilzhoehle";
-					ImGui::InputText("Grundriss", str0, IM_ARRAYSIZE(str0));
+					
+					if (ImGui::Button("Einfuegen"))
+					{
+						MISSIONSDATEN.push_back(Missionsdaten((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), string(Missionsbeschreibung),0));
+						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), Missionsbeschreibung); Einfügen_current = 0;
+					}
+				}
+				/* Exo Spot einfuegen */
+				else if (Einfügen_current == 3 && Mission_Ausgewählt)
+				{							   
+					if (ImGui::Button("Einfuegen"))
+					{
+						ostringstream ss;
+						ss << "Exotic" << (EXOTICknoten.size() + 1);
+						EXOTICknoten.push_back(BASISATTRIBUTE((-1 * Cam.C.x), (-1 * Cam.C.y), 2, MISSIONSDATEN[0].getName(), ss.str()));
+						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), ss.str(), 0, 1); Einfügen_current = 0;
+					}
+				}
+				/* Boss Spot einfuegen */
+				else if (Einfügen_current == 4 && Mission_Ausgewählt)
+				{
+					static char Missionsbeschreibung[128] = "Bossname";
+					ImGui::InputText("Bossname", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));
 					ImGui::SameLine(); HelpMarker(
 						"USER:\n"
 						"Hold SHIFT or use mouse to select text.\n"
@@ -1680,20 +1752,16 @@ int main()
 						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
 						"CTRL+Z,CTRL+Y undo/redo.\n"
 						"ESCAPE to revert.\n");
-
-					static int ix = 2;
-					ImGui::InputInt("X", &ix);
-					static int iy = 2;
-					ImGui::InputInt("Y", &iy);
-					static int ic = 2;
-					ImGui::InputInt("Anzahl", &ic);
 
 					if (ImGui::Button("Einfuegen"))
 					{
-						SQL.Daten_Einfügen(name, ix, iy, str0, ic); Einfügen = false;
+						BOSSEknoten.push_back(BASISATTRIBUTE((-1 * Cam.C.x), (-1 * Cam.C.y), 3, MISSIONSDATEN[0].getName(), Missionsbeschreibung));
+						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), Missionsbeschreibung, 0, 2); Einfügen_current = 0;
 					}
-				}
+				};
 			}
+			
+			
 
 			if (Fensterdaten.ID != 0)
 			{
@@ -1748,7 +1816,6 @@ int main()
 				}
 			}
 
-			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 			// Liste der Missionen
 			if (!Mission_Ausgewählt)
@@ -1760,10 +1827,8 @@ int main()
 				{
 					for (int i = 0; i < Missionsliste.size(); i++)
 					{
-						//char buf[32];
-						//sprintf(buf, "%03d", i);
 						ImGui::TableNextColumn();
-						string combi = Missionsliste[i].first + Missionsliste[i].second;
+						string combi = Missionsliste[i].first + " " + Missionsliste[i].second;
 						if (ImGui::Button(combi.c_str(), ImVec2(-FLT_MIN, 0.0f)))
 						{
 							MISSIONSDATEN = SQL.Daten_Lesen(Missionsliste[i]);

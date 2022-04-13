@@ -6,7 +6,10 @@
 /*
 	Bibliotheken:
 
-		glfw 3.3.6
+		glfw 3.3.6		|		https://www.glfw.org/
+		opengl32		|		Basic in Windows
+		freetype		|		https://freetype.org/												-> Kann "erspart bleiben" wenn der Bereich für Freetype und Schrift ausgeklammert wird. Aktuell "Fehlerhafter Code"
+		mysqlconn 8.0	|		https://dev.mysql.com/doc/connector-cpp/8.0/en/connector-cpp-introduction.html
 */
 
 
@@ -138,7 +141,7 @@ public:
 	string Zusatz;
 
 	BASISATTRIBUTE() {};
-	BASISATTRIBUTE(float x, float y,int Index, string name, string Zusatz = "") : Index(Index)
+	BASISATTRIBUTE(float x, float y,int Index, string name, string Zusatz) : Index(Index)
 	{
 		this->X = x;
 		this->Y = y;
@@ -167,6 +170,7 @@ public:
 	{
 		Index = 0;
 		this->name = name;
+		Zusatz = this->Grundriss;
 		this->X = X;
 		this->Y = Y;
 	};
@@ -174,6 +178,7 @@ public:
 	{
 		Index = 0;
 		this->name = name;
+		Zusatz = this->Grundriss;
 		this->X = cords.getX();
 		this->Y = cords.getY();
 	};
@@ -190,11 +195,12 @@ public:
 /* Klasse für die Missionspunkte - Empfohlen - Ladungspunkt die Belohnungen zu übergeben.  Klasse zur Verbindung mit der Basisanwahl*/
 class Missionsdaten : public BASISATTRIBUTE
 {
-	string Missionstyp;
 
-	int Belohnung_Ren;
 public:
 	string Missionsbeschreibung;
+	string Missionstyp;
+	int Belohnung_Ren;
+
 	Missionsdaten(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : 
 		Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
 	{
@@ -209,6 +215,7 @@ public:
 	{
 		Index = 1;
 		Zusatz = this->Missionsbeschreibung;
+		//*Zusatz = 
 		this->name = Missionsname;
 		this->X = cords.getX();
 		this->Y = cords.getY();
@@ -243,6 +250,11 @@ public:
 	{
 		return Belohnung_Ren;
 	}
+
+	int *getInt()
+	{
+		return &Belohnung_Ren;
+	}
 };
 /* Klasse für die Fensterdaten - Größe des Fensters sowie "anwahl" */
 class window: public Koordinaten
@@ -259,6 +271,7 @@ public:
 
 
 	BASISATTRIBUTE *ID;	/* Variable für die Basisanwahl */
+	unsigned int Arrayindex = 99999;
 
 	void operator() (int X, int Y) 
 	{
@@ -292,6 +305,8 @@ public:
 	#define INVENTORY string("inventory")
 	#define MISSIONEN string("`mission`")
 	
+
+	#define HILFSMARKER ImGui::SameLine(); HelpMarker("USER:\n""Hold SHIFT or use mouse to select text.\n""CTRL+Left/Right to word jump.\n""CTRL+A or double-click to select all.\n""CTRL+X,CTRL+C,CTRL+V clipboard.\n""CTRL+Z,CTRL+Y undo/redo.\n""ESCAPE to revert.\n");
 #endif
 
 #ifndef BASICDECLARATIONEN
@@ -324,6 +339,11 @@ bool SQL_EINLESEN = false;				/* Bit zur Steuerung, ob beim Start das SQL eingel
 bool Interface_Hovered;					/* Bit zur Steuerung, das sobald dass Interface "angewählt" ist, nicht die Karte "bewegt" wird */
 bool Statusanzeige = false;				/* Bit zur Steuerung, dass die Anzeige nur "einaml" pro klick stattfindet */
 bool EINGELOGGT = true;
+
+bool compare(string t1, char* t2)
+{
+	return t1 == string(t2);
+}
 
 /* Klasse für die Datenspeicherung innerhalb eines SQL Systems */
 class PRIVAT_MYSQL
@@ -761,6 +781,165 @@ public:
 					
 		pstmt->executeQuery();
 	}
+	/* Die Funktion dient zum Updaten der als Missionsdaten gepsiecherten Informationen in SQL */
+	void Daten_Updaten(int ID, char* Name, char* Typ, char* Beschreibung, float x, float y, int ren, BASISATTRIBUTE *t)
+	{
+		/* Deklarierung */
+		uint Unr = 0;
+		ostringstream ss;
+		bool PN = 0, PT = 0, PB = 0, PX = 0, PY = 0, PR = 0;
+		int te = 0;
+
+		/* Prüfung */
+		switch (ID)
+		{
+			/*
+				ID 0->Wenn der Name oder der Typ unterschiedlich ist->Führe ein Update von Name und Typ durch
+				ID 0->Wenn X oder Y oder Ren Unterschiedlich sind - Führe ein Update bei Missionsbeschreibung = "Landung" durch
+			*/
+		case 0:
+			t = &MISSIONSDATEN[0];
+			
+			
+
+			PN = !compare(t->getName(), Name); 
+			PT = !compare(MISSIONSDATEN[0].getTyp(), Typ); 
+			PB = !compare(t->Zusatz, Beschreibung); 
+			PX = !(t->X == x);
+			PY = !(t->Y == y);
+			PR = !(MISSIONSDATEN[0].getRen() == ren);
+
+			break;
+			/*
+				ID 2 -> Wenn X oder Y oder Beschreibung unterschiedlich sind - Führe ein Update mithilfe von Mission und Beschreibung durch
+			*/
+		case 2:
+			if (t->Zusatz.compare(Beschreibung)							!= 0)						{ PB = true; };
+			if (t->getX()												!= x)						{ PX = true; };
+			if (t->getY()												!= y)						{ PY = true; };
+			break;
+			/*
+				ID 3 -> Wenn X oder Y unterschiedlich sind					 - Führe ein Update mithilfe von Mission und Beschreibung durch
+			*/
+		case 3:
+			if (t->getX()												!= x)						{ PX = true; };
+			if (t->getY()												!= y)						{ PY = true; };
+			break;
+			/*
+				ID 4 -> Wenn X oder Y oder Beschreibung unterschiedlich sind - Führe ein Update mithilfe von Mission und Beschreibung durch
+			*/
+		case 4:
+			if (t->Zusatz.compare(Beschreibung)							!= 0)						{ PB = true; };
+			if (t->getX()												!= x)						{ PX = true; };
+			if (t->getY()												!= y)						{ PY = true; };
+			break;
+		default:
+			throw "Falscher Index";
+		}
+		
+		if (ID == 0)
+		{
+			/* Updaten von "Allen" Namen und Typen */
+			if ((PN || PT))
+			{
+				ss << "UPDATE " << MISSIONEN << " SET Missionsname = ?, Missionstyp = ?";
+				ss << " WHERE Missionsname = ? AND Missionstyp = ?";
+				pstmt = con->prepareStatement(ss.str().c_str());
+
+				Unr++; pstmt->setString(Unr, Name);
+				Unr++; pstmt->setString(Unr, Typ);
+				Unr++; pstmt->setString(Unr, MISSIONSDATEN[0].getName());
+				Unr++; pstmt->setString(Unr, MISSIONSDATEN[0].getTyp());
+
+				pstmt->executeQuery();
+				for (uint i = 0; i < MISSIONSDATEN.size(); i++)
+				{
+					MISSIONSDATEN[i].name = Name;
+					MISSIONSDATEN[i].Missionstyp = Typ;
+				}
+				
+				PN = PT = false;
+			}
+			Unr = 0;
+			ss = ostringstream();
+		}
+		
+		if (!PN && !PT && !PB && !PX && !PY && !PR) return;
+		/* Erstellung des Basistextes */
+		ss << "UPDATE " << MISSIONEN << " SET";
+
+		if (PN) { ss << " Missionsname = ?";			if (PT || PB || PX || PY || PR) { ss << ","; }; };
+		if (PT) { ss << " Missionstyp = ?";				if		 (PB || PX || PY || PR) { ss << ","; }; };
+		if (PB) { ss << " Missionsbeschreibung = ?";	if			   (PX || PY || PR) { ss << ","; }; };
+		if (PX) { ss << " Position_X = ?";				if					 (PY || PR) { ss << ","; }; };
+		if (PY) { ss << " Position_Y = ?";				if						   (PR) { ss << ","; }; };
+		if (PR) { ss << " Ren = ?"; };
+
+		ss << " WHERE Missionsname = ?" << " AND Missionsbeschreibung = ?";
+		
+		pstmt = con->prepareStatement(ss.str().c_str());// "UPDATE " + MISSIONEN + " SET Position_X = ?, Position_Y = ? WHERE Missionsname = ? AND Missionsbeschreibung = ?");
+
+		/* Eingabe der Werte */
+		if (PN) { Unr++; pstmt->setString(Unr, Name); };
+		if (PT) { Unr++; pstmt->setString(Unr, Typ); };
+		if (PB) { Unr++; pstmt->setString(Unr, Beschreibung); };
+		if (PX) { Unr++; pstmt->setDouble(Unr, x); };
+		if (PY) { Unr++; pstmt->setDouble(Unr, y); };
+		if (PR) { Unr++; pstmt->setInt   (Unr, ren); };
+				  Unr++; pstmt->setString(Unr, t->getName());
+				  Unr++; pstmt->setString(Unr, t->Zusatz);
+				  
+		pstmt->executeQuery();
+		
+		if(PX) t->X = x;
+		if(PY) t->Y = y;
+		if (PR) MISSIONSDATEN[0].Belohnung_Ren = ren;
+		if (PB) 
+		{
+			t->Zusatz = Beschreibung;
+			if (ID == 0 || ID == 2)
+				MISSIONSDATEN[Fensterdaten.Arrayindex].Missionsbeschreibung = Beschreibung; 
+		};
+	}
+	
+	/* Funktion zum Updaten von Höhlendaten mit vorher bekannten Namen */
+	void Daten_Updaten(char* Name, char* Typ, float x, float y, BASISATTRIBUTE *t)
+	{
+		/* Deklarierung */
+		uint Unr = 0;
+		bool UpdateX = 0, UpdateY = 0, UpdateGrund = 0, UpdateName = 0;
+		ostringstream ss;		
+
+		/* Prüfung */
+		if (t->getX() != x) UpdateX = true;
+		if (t->getY() != y) UpdateY = true;
+		if (Höhlenentraces[Fensterdaten.Arrayindex].Grundriss.find(Typ) == Höhlenentraces[Fensterdaten.Arrayindex].Grundriss.npos) UpdateGrund = true;
+		if (t->name.find(Name) == t->name.npos) UpdateName = true;
+
+		/* Vorbereitung des Statments */
+		ss << "UPDATE " << CAVEENTRACE << " SET";
+		if (UpdateX) {		ss << " Position_X = ?";	if (UpdateY || UpdateGrund || UpdateName)	ss << ","; };
+		if (UpdateY) {		ss << " Position_Y = ?";	if			  (UpdateGrund || UpdateName)	ss << ","; };
+		if (UpdateGrund) {	ss << " Grundriss= ?";		if							 (UpdateName)	ss << ","; };
+		if (UpdateName)		ss << "  name = ?";
+		ss << " WHERE name = ?";
+		pstmt = con->prepareStatement(ss.str().c_str());				//"UPDATE " + CAVEENTRACE + " SET Position_X = ?, Position_Y = ?, Grundriss= ?, name = ? WHERE name = ?");
+
+		/* Eintragen der Werte */
+		if (UpdateX)		{ Unr++; pstmt->setDouble(Unr, x); };
+		if (UpdateY)		{ Unr++; pstmt->setDouble(Unr, y); };
+		if (UpdateGrund)	{ Unr++; pstmt->setString(Unr, Typ); };
+		if (UpdateName)		{ Unr++; pstmt->setString(Unr, Name); };
+							  Unr++; pstmt->setString(Unr, t->getName());
+
+		/* Ersetzen in der Datenbank*/
+		pstmt->executeQuery();
+		/* Ersetzen im Internen Speicher */
+		t->name = Name;
+		Höhlenentraces[Fensterdaten.Arrayindex].Zusatz = Höhlenentraces[Fensterdaten.Arrayindex].Grundriss = Typ;
+		Höhlenentraces[Fensterdaten.Arrayindex].X = x;
+		Höhlenentraces[Fensterdaten.Arrayindex].Y = y;
+	}
 
 	/* TODO(Im Programm) nach Loginfenster zum entfernen einzelner Objekte als Datenbank Manager */
 	void Daten_Löschen(string name)
@@ -1172,7 +1351,7 @@ inline void mouse_button_callback(GLFWwindow* window, int button, int action, in
 	}
 }
 
-/* Funktion zur Umwandlung der X-Y Koordinaten des "Displays" in 3D Weltkoordinaten */
+/* Funktion zur Umwandlung der X-Y Koordinaten des "Displays" in 3D Weltkoordinaten - TODO Korrektur der Anwahl - Nicht Vollständig */
 inline glm::vec3 Coursor_Cast(glm::mat4 Projection)
 {
 	glReadBuffer(GL_FRONT);
@@ -1199,7 +1378,7 @@ inline glm::vec3 Coursor_Cast(glm::mat4 Projection)
 	return t1;
 }
 
-/* Der AABB vergleich zur Anwahl */
+/* Der AABB vergleich zur Anwahl  - Clean*/
 inline bool compare(glm::vec3 Cursor, BASISATTRIBUTE *Objekt)
 {
 	/* Wenn das X und Y  innerhalb des Bereichs liegt - gebe den namen zurück */
@@ -1219,45 +1398,49 @@ inline void Objektanwahl()
 
 	if (Fensterdaten.ID == 0)
 	{
-		/* Bereich, zum Anwahl abgleich */
+		/* Auswahl ist eine Höhle */
 		for (uint i = 0; i < Höhlenentraces.size(); i++)
 		{
 			if (compare(T0, &Höhlenentraces[i]))
 			{
 				Fensterdaten.ID = &Höhlenentraces[i];
+				Fensterdaten.Arrayindex = i;
 				if (Fensterdaten.ID != 0)
 					cout << Fensterdaten.ID->name << endl;
 				return;
 			}
 		}
-
+		/* Auswahl ist ein Missionsziel */
 		for (uint i = 0; i < MISSIONSDATEN.size(); i++)
 		{
 			if (compare(T0, &MISSIONSDATEN[i]))
 			{
 				Fensterdaten.ID = &MISSIONSDATEN[i];
+				Fensterdaten.Arrayindex = i;
 				if (Fensterdaten.ID != 0)
 					cout << Fensterdaten.ID->name << endl;
 				return;
 			}
 		}
-
+		/* Auswahl ist ein Exotic Spot */
 		for (uint i = 0; i < EXOTICknoten.size(); i++)
 		{
 			if (compare(T0, &EXOTICknoten[i]))
 			{
 				Fensterdaten.ID = &EXOTICknoten[i];
+				Fensterdaten.Arrayindex = i;
 				if (Fensterdaten.ID != 0)
 					cout << Fensterdaten.ID->name << endl;
 				return;
 			}
 		}
-
+		/* Auswahl ist ein Boss Spot */
 		for (uint i = 0; i < BOSSEknoten.size(); i++)
 		{
 			if (compare(T0, &BOSSEknoten[i]))
 			{
 				Fensterdaten.ID = &BOSSEknoten[i];
+				Fensterdaten.Arrayindex = i;
 				if (Fensterdaten.ID != 0)
 					cout << Fensterdaten.ID->name << endl;
 				return;
@@ -1270,6 +1453,7 @@ inline void Objektanwahl()
 		SQL.Daten_Updaten(Fensterdaten.ID);
 	}		
 	Fensterdaten.ID = 0;
+	Fensterdaten.Arrayindex = 99999;
 }
 
 /* Verarbeiten der Tastertur und Mauseingaben - Abtrennung zum Rendering */
@@ -1369,6 +1553,7 @@ inline void processInput(GLFWwindow *window)
 	}	
 }
 
+/* Funktion zum laden von Texturen - Returnwert die Texture - Clean*/
 inline uint loadTexture(char const * path)
 {
 	uint temp;
@@ -1413,6 +1598,18 @@ inline void HelpMarker(const char* desc)
 		ImGui::EndTooltip();
 	}
 };
+
+inline void Conv_Str_char(char * buf, string t)
+{
+	uint i;
+	for (i = 0; i < t.size(); i++)
+		buf[i] = t[i];
+	while (buf[i] != 0)
+	{
+		buf[i] = ' ';
+		i++;
+	}
+}
 
 int main()
 {
@@ -1516,8 +1713,8 @@ int main()
 	static bool Löschen = false;
 	static bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
 	static bool Mission_Ausgewählt = false;
-
-	bool Wechsel = false;
+	static bool Reset = false;
+	static bool Wechsel = false;
 
 
 	float radians = 0.0;
@@ -1622,177 +1819,230 @@ int main()
 			}
 			if (!Mission_Ausgewählt){ImGui::Text("Waehle die Mission aus: ");}
 
-			/* Um etwas "Hinzu zufügen" muss man eingeloggt sein			-- Hinzufügen Clean*/
+			float x = Höhlenentraces[0].X;
+			x = Höhlenentraces[1].X;
+			x = Höhlenentraces[2].X;
+			x = Höhlenentraces[3].X;
+
+			/* Zur Steuerung von Update, Löschen und Hinzufügen muss man eingeloggt sein */
 			if (EINGELOGGT)
 			{
-				/* Das Einfügen wird mithilfe einer Auswahlbox durchgeführt, welche Abhängig der stands angepasst wird */
-				static int Einfügen_current = 0;
-				/* Auswahl zwischen Mission angewählt oder nicht */
-				if (!Mission_Ausgewählt)
+				/* Hinzufügen */
 				{
-					const char* Einfügen[] = { "Nichts einfuegen", "Hoehle einfuegen", "Mission einfuegen" };
-					ImGui::Combo("combo", &Einfügen_current, Einfügen, IM_ARRAYSIZE(Einfügen));
-				}
-				else
-				{
-					const char* Einfügen[] = { "Nichts einfuegen", "Hoehle einfuegen", "Mission Ziel einfuegen", "Exo Spot einfuegen", "Boss Spot einfuegen" };
-					ImGui::Combo("combo", &Einfügen_current, Einfügen, IM_ARRAYSIZE(Einfügen));
-				};
-
-				
-				/* Hoehle einfuegen */
-				if (Einfügen_current == 1)
-				{
-					static char name[128] = "Name der Hoehle";
-					ImGui::InputText("Name der Hoehle", name, IM_ARRAYSIZE(name));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-
-					static char Grundriss[128] = "Kleine Pilzhoehle";
-					ImGui::InputText("Grundriss", Grundriss, IM_ARRAYSIZE(Grundriss));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-
-					static int ic = 2;
-					ImGui::InputInt("Anzahl", &ic);
-
-					if (ImGui::Button("Einfuegen"))
+					/* Das Einfügen wird mithilfe einer Auswahlbox durchgeführt, welche Abhängig der stands angepasst wird */
+					static int Einfügen_current = 0;
+					/* Auswahl zwischen Mission angewählt oder nicht */
+					if (!Mission_Ausgewählt)
 					{
-						Höhlenentraces.push_back(Höhlendaten(name, (-1 * Cam.C.x), (-1 * Cam.C.y), Grundriss, ic));
-						SQL.Daten_Einfügen(name, (-1 * Cam.C.x), (-1 * Cam.C.y), Grundriss, ic); Einfügen_current = 0;
+						const char* Einfügen[] = { "Nichts einfuegen", "Hoehle einfuegen", "Mission einfuegen" };
+						ImGui::Combo("combo", &Einfügen_current, Einfügen, IM_ARRAYSIZE(Einfügen));
+					}
+					else
+					{
+						const char* Einfügen[] = { "Nichts einfuegen", "Hoehle einfuegen", "Mission Ziel einfuegen", "Exo Spot einfuegen", "Boss Spot einfuegen" };
+						ImGui::Combo("combo", &Einfügen_current, Einfügen, IM_ARRAYSIZE(Einfügen));
+					};
+
+
+					/* Hoehle einfuegen */
+					if (Einfügen_current == 1)
+					{
+						static char name[128] = "Name der Hoehle";
+						static char Grundriss[128] = "Kleine Pilzhoehle";
+						static int ic = 2;
+
+						ImGui::InputText("Name der Hoehle", name, IM_ARRAYSIZE(name));									HILFSMARKER
+						ImGui::InputText("Grundriss", Grundriss, IM_ARRAYSIZE(Grundriss));								HILFSMARKER
+						ImGui::InputInt("Anzahl", &ic);
+
+						if (ImGui::Button("Einfuegen"))
+						{
+							Höhlenentraces.push_back(Höhlendaten(name, (-1 * Cam.C.x), (-1 * Cam.C.y), Grundriss, ic));
+							SQL.Daten_Einfügen(name, (-1 * Cam.C.x), (-1 * Cam.C.y), Grundriss, ic);																Einfügen_current = false;
+						}
+					}
+					/* Mission einfuegen - Einzugebende Parameter: Name,Typ und Ren | Fertige Parameter: Beschreibung, Koordinaten, Knotentyp */
+					else if (Einfügen_current == 2 && !Mission_Ausgewählt)
+					{
+						static char Missionname[128] = "Missionsname";
+						static char Missionstyp[128] = "Missionstyp";
+						static int ren = 123;
+
+						ImGui::InputText("Missionsname", Missionname, IM_ARRAYSIZE(Missionname));						HILFSMARKER
+						ImGui::InputText("Missionstyp", Missionstyp, IM_ARRAYSIZE(Missionstyp));						HILFSMARKER
+						ImGui::InputInt("Ren", &ren);
+
+						if (ImGui::Button("Einfuegen"))
+						{
+							Missionsliste.push_back({ Missionname, Missionstyp });
+							SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), Missionname, Missionstyp, "Ladnung", ren);											Einfügen_current = false;
+						}
+					}
+					/* Missions Ziel einfuegen  - Einzugebende Parameter: Beschreibung | Fertige Parameter: Name, Typ, Ren, Koordinaten, Knotentyp */
+					else if (Einfügen_current == 2 && Mission_Ausgewählt)
+					{
+						static char Missionsbeschreibung[512] = "Zielbeschreibung";
+						ImGui::InputText("Zielbeschreibung", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));	HILFSMARKER
+
+						if (ImGui::Button("Einfuegen"))
+						{
+							MISSIONSDATEN.push_back(Missionsdaten((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), string(Missionsbeschreibung), 0));
+							SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), Missionsbeschreibung);		Einfügen_current = false;
+						}
+					}
+					/* Exo Spot einfuegen */
+					else if (Einfügen_current == 3 && Mission_Ausgewählt)
+					{
+						if (ImGui::Button("Einfuegen"))
+						{
+							ostringstream ss;
+							ss << "Exotic" << (EXOTICknoten.size() + 1);
+
+							EXOTICknoten.push_back(BASISATTRIBUTE((-1 * Cam.C.x), (-1 * Cam.C.y), 2, MISSIONSDATEN[0].getName(), ss.str()));
+							SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), ss.str(), 0, 1);				Einfügen_current = false;
+						}
+					}
+					/* Boss Spot einfuegen */
+					else if (Einfügen_current == 4 && Mission_Ausgewählt)
+					{
+						static char Missionsbeschreibung[128] = "Bossname";
+						ImGui::InputText("Bossname", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));			HILFSMARKER
+
+						if (ImGui::Button("Einfuegen"))
+						{
+							BOSSEknoten.push_back(BASISATTRIBUTE((-1 * Cam.C.x), (-1 * Cam.C.y), 3, MISSIONSDATEN[0].getName(), Missionsbeschreibung));
+							SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), Missionsbeschreibung, 0, 2);	Einfügen_current = false;
+						}
+					};
+				}
+
+				/* Updaten */
+				{
+				/* 
+					Zum Updaten wird eine Objektanwahl benötigt - Abhängig vom Objekt kann jeder Parameter angepasst werden 
+					- Das Verschieben darf auch nur währen eingeloggt sein passieren
+				*/
+					if (Fensterdaten.ID != 0 || Mission_Ausgewählt)
+					{
+						/* Damit soll das Updaten "aktiviert" werden - damit nicht ausversehen etwas verändert wird */
+						if (ImGui::Button("SQL Updaten"))
+						{
+							if (!Updaten)
+								Reset = true;
+							Updaten = !Updaten;
+						}
+						if (Updaten)
+						{
+							static char Name[128], Typ[128], Beschreibung[512];
+							static float px, py;
+							static int ren;
+
+							/* Updaten von Mission Information - es ist der Name, der Typ, die Positionierung und die Renmenge veränderbar */
+							if (Fensterdaten.ID == 0)
+							{
+								if (Reset)
+								{
+									Conv_Str_char(Name, MISSIONSDATEN[0].getName());
+									Conv_Str_char(Typ, MISSIONSDATEN[0].getTyp());
+									Conv_Str_char(Beschreibung, MISSIONSDATEN[0].getBeschreibung());
+									px = MISSIONSDATEN[0].getX();
+									py = MISSIONSDATEN[0].getY();
+									ren = MISSIONSDATEN[0].getRen();
+									Reset = false;
+								}
+
+								ImGui::InputText("Missionsname", Name, IM_ARRAYSIZE(Name));		HILFSMARKER
+								ImGui::InputText("Missionstyp", Typ, IM_ARRAYSIZE(Typ));		HILFSMARKER
+								ImGui::InputFloat("X Position", &px);
+								ImGui::InputFloat("Y Position", &py);
+								ImGui::InputInt("Ren", &ren);
+							}
+							/* Updaten von Höhleneingang - es ist der Name, die Positionierung und die Form */
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID ->Index == 0)
+							{
+								if (Reset)
+								{
+									Conv_Str_char(Name, Fensterdaten.ID ->getName());
+									Conv_Str_char(Typ, Fensterdaten.ID->Zusatz);
+									px = Fensterdaten.ID->getX();
+									py = Fensterdaten.ID->getY();
+									Reset = false;
+								}
+
+								ImGui::InputText("Höhlennamen", Name, IM_ARRAYSIZE(Name));		HILFSMARKER
+								ImGui::InputText("Höhlenform", Typ, IM_ARRAYSIZE(Typ));			HILFSMARKER
+								ImGui::InputFloat("X Position", &px);
+								ImGui::InputFloat("Y Position", &py);
+							}
+							/* Updaten von Missionsziel  - Anzupassen ist die Beschreibung und die Positionierung */
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 1)
+							{
+								if (Reset)
+								{
+									Conv_Str_char(Beschreibung, MISSIONSDATEN[0].getTyp());
+									px = MISSIONSDATEN[0].getX();
+									py = MISSIONSDATEN[0].getY();
+									Reset = false;
+								}
+								ImGui::InputText("Beschreibung", Beschreibung, IM_ARRAYSIZE(Beschreibung));		HILFSMARKER
+								ImGui::InputFloat("X Position", &px);
+								ImGui::InputFloat("Y Position", &py);
+							}
+							/* Updaten von Exotic Spot  - Anzupassen ist die Positionierung */
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 2)
+							{
+								if (Reset)
+								{
+									px = MISSIONSDATEN[0].getX();
+									py = MISSIONSDATEN[0].getY();
+									Reset = false;
+								}
+								ImGui::InputFloat("X Position", &px);
+								ImGui::InputFloat("Y Position", &py);
+							}
+							/* Updaten von Boss Spot  - Anpassen des Namens und der Positionierung */
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 3)
+							{
+								if (Reset)
+								{
+									Conv_Str_char(Beschreibung, MISSIONSDATEN[0].getTyp());
+									px = MISSIONSDATEN[0].getX();
+									py = MISSIONSDATEN[0].getY();
+									Reset = false;
+								}
+								ImGui::InputText("Beschreibung", Beschreibung, IM_ARRAYSIZE(Beschreibung));		HILFSMARKER
+								ImGui::InputFloat("X Position", &px);
+								ImGui::InputFloat("Y Position", &py);
+							}				
+
+							if (ImGui::Button("Updaten"))
+							{
+								/* 
+									Übergebe Abhängig von den zu Übertragenden Werte 
+									0 -> Ist die Aktualisierung der Mission Namen - 
+									Achtung:
+										Namens Änderungen beziehen sich auf "alle" einträge 
+										Ren und Positionänderungen beziehen sich auf "Landung" 
+
+									1 -> Höhlendaten  - Dieser Eintrag sollte "nur" einmalig existieren,				wodurch keine Besonderheit beachtet werden muss
+									2 -> Missionsziel - Dieser Eintrag sollte "nur" einmalig exisiteren,				wodurch keine Besonderheit beachtet werden muss
+									3 -> Exotic Spot  - Dieser Eintrag ist mithilfe von Beschreibung nur "einmalig",	wodurch keine Besonderheit beachtet werden muss
+									4 -> Boss Spot	  - Dieser Eintrag sollte "nur" einmalig existieren, 				wodurch keine Besonderheit beachtet werden muss
+								*/
+								if (Fensterdaten.ID == 0)
+									SQL.Daten_Updaten(0, Name, Typ, Beschreibung, px, py, ren, Fensterdaten.ID);
+								if(Fensterdaten.ID != 0 && Fensterdaten.ID ->Index == 0)
+									SQL.Daten_Updaten(Name,Typ,px,py, Fensterdaten.ID);
+								Updaten = false;
+							}
+						}
 					}
 				}
-				/* Mission einfuegen - Einzugebende Parameter: Name,Typ und Ren | Fertige Parameter: Beschreibung, Koordinaten, Knotentyp */
-				else if (Einfügen_current == 2 && !Mission_Ausgewählt)
-				{
-					static char Missionname[128] = "Missionsname";
-					ImGui::InputText("Missionsname", Missionname, IM_ARRAYSIZE(Missionname));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-
-					static char Missionstyp[128] = "Missionstyp";
-					ImGui::InputText("Missionstyp", Missionstyp, IM_ARRAYSIZE(Missionstyp));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-
-					static int ren = 123;
-					ImGui::InputInt("Ren", &ren);
-
-					if (ImGui::Button("Einfuegen"))
-					{
-						Missionsliste.push_back({ Missionname, Missionstyp });
-						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), Missionname, Missionstyp, "Ladnung", ren); Einfügen_current = false;
-					}
-				}
-				/* Missions Ziel einfuegen  - Einzugebende Parameter: Beschreibung | Fertige Parameter: Name, Typ, Ren, Koordinaten, Knotentyp */
-				else if (Einfügen_current == 2 && Mission_Ausgewählt)
-				{
-					static char Missionsbeschreibung[512] = "Zielbeschreibung";
-					ImGui::InputText("Zielbeschreibung", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-					
-					if (ImGui::Button("Einfuegen"))
-					{
-						MISSIONSDATEN.push_back(Missionsdaten((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), string(Missionsbeschreibung),0));
-						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), Missionsbeschreibung); Einfügen_current = 0;
-					}
-				}
-				/* Exo Spot einfuegen */
-				else if (Einfügen_current == 3 && Mission_Ausgewählt)
-				{							   
-					if (ImGui::Button("Einfuegen"))
-					{
-						ostringstream ss;
-						ss << "Exotic" << (EXOTICknoten.size() + 1);
-						EXOTICknoten.push_back(BASISATTRIBUTE((-1 * Cam.C.x), (-1 * Cam.C.y), 2, MISSIONSDATEN[0].getName(), ss.str()));
-						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), ss.str(), 0, 1); Einfügen_current = 0;
-					}
-				}
-				/* Boss Spot einfuegen */
-				else if (Einfügen_current == 4 && Mission_Ausgewählt)
-				{
-					static char Missionsbeschreibung[128] = "Bossname";
-					ImGui::InputText("Bossname", Missionsbeschreibung, IM_ARRAYSIZE(Missionsbeschreibung));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-
-					if (ImGui::Button("Einfuegen"))
-					{
-						BOSSEknoten.push_back(BASISATTRIBUTE((-1 * Cam.C.x), (-1 * Cam.C.y), 3, MISSIONSDATEN[0].getName(), Missionsbeschreibung));
-						SQL.Daten_Einfügen((-1 * Cam.C.x), (-1 * Cam.C.y), MISSIONSDATEN[0].getName(), MISSIONSDATEN[0].getTyp(), Missionsbeschreibung, 0, 2); Einfügen_current = 0;
-					}
-				};
 			}
 			
 			
 
-			if (Fensterdaten.ID != 0)
-			{
-				if (ImGui::Button("SQL Updaten"))
-					Updaten = !Updaten;
-				if (Updaten)
-				{
-					static char NAME[128] = "Höhle";
-					ImGui::InputText("Höhlennamen", NAME, IM_ARRAYSIZE(NAME));
-					ImGui::SameLine(); HelpMarker(
-						"USER:\n"
-						"Hold SHIFT or use mouse to select text.\n"
-						"CTRL+Left/Right to word jump.\n"
-						"CTRL+A or double-click to select all.\n"
-						"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-						"CTRL+Z,CTRL+Y undo/redo.\n"
-						"ESCAPE to revert.\n");
-
-					static float px = Fensterdaten.ID->X;
-					ImGui::InputFloat("X Position", &px);
-
-					static float py = Fensterdaten.ID->Y;
-					ImGui::InputFloat("Y Position", &py);
-
-					if (ImGui::Button("Updaten"))
-					{
-						SQL.Daten_Updaten(Fensterdaten.ID);
-						Updaten = false;
-					}
-				}
-			}
+			
 
 			if (ImGui::Button("SQL Loeschen"))
 				Löschen = !Löschen;

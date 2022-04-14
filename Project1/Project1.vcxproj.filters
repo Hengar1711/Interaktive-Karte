@@ -89,6 +89,9 @@
     <ClInclude Include="lodepng.h">
       <Filter>Headerdateien\PNG</Filter>
     </ClInclude>
+    <ClInclude Include="Interaktive_Karte.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMet.txt" />

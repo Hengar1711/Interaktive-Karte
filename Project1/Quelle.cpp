@@ -12,7 +12,6 @@
 		mysqlconn 8.0	|		https://dev.mysql.com/doc/connector-cpp/8.0/en/connector-cpp-introduction.html
 */
 
-
 #ifndef INCLUDES
 	#define INCLUDES
 	#include <stdlib.h>
@@ -50,6 +49,8 @@
 	#include <cppconn/driver.h>
 	#include <cppconn/exception.h>
 	#include <cppconn/prepared_statement.h>
+
+	#include "Interaktive_Karte.h"
 
 	using namespace std;
 #endif
@@ -93,193 +94,203 @@
 
 				Einfügen sobald "eingelogt"
 */
-
-/* Klasse für die Vereinfachte X/Y Koordinaten innerhalb des Programms - bei Erweiterung sollte es auf glm::vec2 Basis aufgebaut werden*/
-class Koordinaten
-{
-	
-public:
-	float X, Y;
-	Koordinaten() {};
-	Koordinaten(float X, float Y) : X(X), Y(Y) {};
-	Koordinaten operator() (float X, float Y) { this->X = X; this->Y = Y; return *this; };
-	float getX() { return X; };
-	float getY() { return Y; };
-};
-/* Klasse für den Namen eines Spiels - Mithilfe desses ist es möglich über mehere strings zu Navigieren*/
-class NAME
-{
-public:
-	string name;
-	NAME() {};
-	NAME(string name) : name(name) {};
-	NAME operator() (string name) { this->name = name; return *this; };
-	string getName() { return name; };
-};
-/* Klasse zur Speicherung der Maus Steuerinformationen um im Programm "vereinfacht" drauf zuzugreifen */
-class MAUS
-{
-public:
-	bool Is_Links_Klickt, Is_Rechts_Klickt;
-	int Action;
-	double X, Y, Z;
-	float NX, NY;
-};
-
-class Simple_Cam
-{
-public:
-	glm::vec3 C;
-	glm::mat4 view = glm::mat4(1.0f); 
-	glm::mat4 projection = glm::mat4(1.0f);
-} Cam;
-/* Klassen für die Klassenvererbung von Koordinaten und Name - Zusammengefaster/Polymorpher Zugriff zu den "Targets" */
-class BASISATTRIBUTE : public Koordinaten, public NAME
-{
-public:
-	int Index;
-	string Zusatz;
-
-	BASISATTRIBUTE() {};
-	BASISATTRIBUTE(float x, float y,int Index, string name, string Zusatz) : Index(Index)
+	   
+	/* Klasse für die Vereinfachte X/Y Koordinaten innerhalb des Programms - bei Erweiterung sollte es auf glm::vec2 Basis aufgebaut werden*/
+	class Koordinaten
 	{
-		this->X = x;
-		this->Y = y;
-		this->name = name;
-		this->Zusatz = Zusatz;
-	}
 
-	operator glm::vec2()
-	{
-		return glm::vec2(X, Y);
-	}
-
-	glm::vec2 getKoordinaten()
-	{
-		return  glm::vec2(X, Y);
-	}
-};
-/* Klasse für die Zusammenfassung der Höhlendaten und verbinden mit der Basisanwahl */
-class Höhlendaten : public BASISATTRIBUTE
-{
-
-public:
-	string Grundriss;
-	int ErzknotenAnzahl;
-	Höhlendaten(string name, int X, int Y, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
-	{
-		Index = 0;
-		this->name = name;
-		Zusatz = this->Grundriss;
-		this->X = X;
-		this->Y = Y;
-	};
-	Höhlendaten(Koordinaten cords, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
-	{
-		Index = 0;
-		this->name = name;
-		Zusatz = this->Grundriss;
-		this->X = cords.getX();
-		this->Y = cords.getY();
+	public:
+		float X, Y; // Variable für die Positionierung - Für eine Vereinfachung kann es zu glm::vec2 gewandelt werden
+		Koordinaten() {};
+		Koordinaten(float X, float Y) : X(X), Y(Y) {};
+		Koordinaten operator() (float X, float Y) { this->X = X; this->Y = Y; return *this; };
+		float getX() { return X; };
+		float getY() { return Y; };
 	};
 
-	operator Koordinaten()
+	/* Basisklasse für den Namen - Für einen Vererbungszugriff - Trennt mögliche andere string  */
+	class NAME
 	{
-		return Koordinaten(this->getX(), this->getY());
-	}
-	operator glm::vec2()
-	{
-		return glm::vec2(X, Y);
-	}
-};
-/* Klasse für die Missionspunkte - Empfohlen - Ladungspunkt die Belohnungen zu übergeben.  Klasse zur Verbindung mit der Basisanwahl*/
-class Missionsdaten : public BASISATTRIBUTE
-{
-
-public:
-	string Missionsbeschreibung;
-	string Missionstyp;
-	int Belohnung_Ren;
-
-	Missionsdaten(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : 
-		Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
-	{
-		Index = 1;
-		Zusatz = this->Missionsbeschreibung;
-		this->name = Missionsname;
-		this->X = X;
-		this->Y = Y;
-	};
-	Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) : 
-		Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
-	{
-		Index = 1;
-		Zusatz = this->Missionsbeschreibung;
-		//*Zusatz = 
-		this->name = Missionsname;
-		this->X = cords.getX();
-		this->Y = cords.getY();
+	public:
+		string name;
+		/* Zero Access - Spätere Terminierung "zum erzwingen einen Namen zu Übergeben" */
+		NAME() {};
+		NAME(string name) : name(name) {};
+		/* Möglichkeit nach der Zuweisung weitere Zugriffe zu ermöglichen */
+		NAME operator() (string name) { this->name = name; return *this; };
+		string getName() { return name; };
 	};
 
-	operator Koordinaten()
+	/* Klasse zur Speicherung der Maus Steuerinformationen für einen Vereinfachten Zugriff */
+	class MAUS
 	{
-		return Koordinaten(this->getX(), this->getY());
-	}
-	operator glm::vec2()
-	{
-		return glm::vec2(X, Y);
-	}
-
-	glm::vec2 getKoordinaten()
-	{
-		return  glm::vec2(X, Y);
-	}
-	string getName()
-	{
-		return name;
+	public:
+		bool Is_Links_Klickt, Is_Rechts_Klickt;
+		int Action;
+		double X, Y, Z;
+		float NX, NY;
 	};
-	string getTyp()
+
+	/* Stark Vereinfachte Kamera - Positionierung (C) mithilfe von vec3 - Speicher der View und projection Matrix */
+	class Simple_Cam
 	{
-		return Missionstyp;
+	public:
+		glm::vec3 C;
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 projection = glm::mat4(1.0f);
+	} Cam;
+
+	/* Klassen für die Klassenvererbung von Koordinaten und Name - Zusammengefaster/Polymorpher Zugriff zu den "Targets" */
+	class BASISATTRIBUTE : public Koordinaten, public NAME
+	{
+	public:
+		int Index;
+		string Zusatz;
+
+		BASISATTRIBUTE() {};
+		BASISATTRIBUTE(float x, float y, int Index, string name, string Zusatz) : Index(Index)
+		{
+			this->X = x;
+			this->Y = y;
+			this->name = name;
+			this->Zusatz = Zusatz;
+		}
+
+		operator glm::vec2()
+		{
+			return glm::vec2(X, Y);
+		}
+
+		glm::vec2 getKoordinaten()
+		{
+			return  glm::vec2(X, Y);
+		}
 	};
-	string getBeschreibung()
+
+	/* Klasse für die Zusammenfassung der Höhlendaten und verbinden mit der Basisanwahl */
+	class Höhlendaten : public BASISATTRIBUTE
 	{
-		return Missionsbeschreibung;
+
+	public:
+		string Grundriss;
+		int ErzknotenAnzahl;
+		Höhlendaten(string name, int X, int Y, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
+		{
+			Index = 0;
+			this->name = name;
+			Zusatz = this->Grundriss;
+			this->X = X;
+			this->Y = Y;
+		};
+		Höhlendaten(Koordinaten cords, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
+		{
+			Index = 0;
+			this->name = name;
+			Zusatz = this->Grundriss;
+			this->X = cords.getX();
+			this->Y = cords.getY();
+		};
+
+		operator Koordinaten()
+		{
+			return Koordinaten(this->getX(), this->getY());
+		}
+		operator glm::vec2()
+		{
+			return glm::vec2(X, Y);
+		}
 	};
-	int getRen()
+
+	/* Klasse für die Missionspunkte - Empfohlen - Ladungspunkt die Belohnungen zu übergeben.  Klasse zur Verbindung mit der Basisanwahl*/
+	class Missionsdaten : public BASISATTRIBUTE
 	{
-		return Belohnung_Ren;
-	}
 
-	int *getInt()
+	public:
+		string Missionsbeschreibung;
+		string Missionstyp;
+		int Belohnung_Ren;
+
+		Missionsdaten(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) :
+			Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
+		{
+			Index = 1;
+			Zusatz = this->Missionsbeschreibung;
+			this->name = Missionsname;
+			this->X = X;
+			this->Y = Y;
+		};
+		Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) :
+			Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
+		{
+			Index = 1;
+			Zusatz = this->Missionsbeschreibung;
+			//*Zusatz = 
+			this->name = Missionsname;
+			this->X = cords.getX();
+			this->Y = cords.getY();
+		};
+
+		operator Koordinaten()
+		{
+			return Koordinaten(this->getX(), this->getY());
+		}
+		operator glm::vec2()
+		{
+			return glm::vec2(X, Y);
+		}
+
+		glm::vec2 getKoordinaten()
+		{
+			return  glm::vec2(X, Y);
+		}
+		string getName()
+		{
+			return name;
+		};
+		string getTyp()
+		{
+			return Missionstyp;
+		};
+		string getBeschreibung()
+		{
+			return Missionsbeschreibung;
+		};
+		int getRen()
+		{
+			return Belohnung_Ren;
+		}
+
+		int *getInt()
+		{
+			return &Belohnung_Ren;
+		}
+	};
+
+	/* Klasse für die Fensterdaten - Größe des Fensters sowie "anwahl" */
+	class window : public Koordinaten
 	{
-		return &Belohnung_Ren;
-	}
-};
-/* Klasse für die Fensterdaten - Größe des Fensters sowie "anwahl" */
-class window: public Koordinaten
-{
-public:
-	MAUS Maus;
+	public:
+		MAUS Maus;
 
-	glm::vec3 MAUS()
-	{
-		return glm::vec3(Maus.X, Maus.Y, Maus.Z);
-	}
-	window() : Koordinaten(800, 600) {};
-	glm::vec4 viewport = { 0,0,X,Y };
+		glm::vec3 MAUS()
+		{
+			return glm::vec3(Maus.X, Maus.Y, Maus.Z);
+		}
+		window() : Koordinaten(800, 600) {};
+		glm::vec4 viewport = { 0,0,X,Y };
 
 
-	BASISATTRIBUTE *ID;	/* Variable für die Basisanwahl */
-	unsigned int Arrayindex = 99999;
+		BASISATTRIBUTE *ID;	/* Variable für die Basisanwahl */
+		unsigned int Arrayindex = 99999;
 
-	void operator() (int X, int Y) 
-	{
-		this->X = X; 
-		this->Y = Y; 
-		viewport = { 0,Y,X,-Y };
-	}	
-}Fensterdaten;
+		void operator() (int X, int Y)
+		{
+			this->X = X;
+			this->Y = Y;
+			viewport = { 0,Y,X,-Y };
+		}
+	}Fensterdaten;
+
 
 #ifndef DEFINITIONEN
 	#define DEFINITIONEN
@@ -1946,83 +1957,83 @@ int main()
 									Conv_Str_char(Typ, MISSIONSDATEN[0].getTyp());
 									Conv_Str_char(Beschreibung, MISSIONSDATEN[0].getBeschreibung());
 									px = MISSIONSDATEN[0].getX();
-									py = MISSIONSDATEN[0].getY();
-									ren = MISSIONSDATEN[0].getRen();
-									Reset = false;
+py = MISSIONSDATEN[0].getY();
+ren = MISSIONSDATEN[0].getRen();
+Reset = false;
 								}
 
 								ImGui::InputText("Missionsname", Name, IM_ARRAYSIZE(Name));		HILFSMARKER
-								ImGui::InputText("Missionstyp", Typ, IM_ARRAYSIZE(Typ));		HILFSMARKER
-								ImGui::InputFloat("X Position", &px);
+									ImGui::InputText("Missionstyp", Typ, IM_ARRAYSIZE(Typ));		HILFSMARKER
+									ImGui::InputFloat("X Position", &px);
 								ImGui::InputFloat("Y Position", &py);
 								ImGui::InputInt("Ren", &ren);
 							}
 							/* Updaten von Höhleneingang - es ist der Name, die Positionierung und die Form */
-							else if (Fensterdaten.ID != 0 && Fensterdaten.ID ->Index == 0)
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 0)
 							{
-								if (Reset)
-								{
-									Conv_Str_char(Name, Fensterdaten.ID ->getName());
-									Conv_Str_char(Typ, Fensterdaten.ID->Zusatz);
-									px = Fensterdaten.ID->getX();
-									py = Fensterdaten.ID->getY();
-									Reset = false;
-								}
+							if (Reset)
+							{
+								Conv_Str_char(Name, Fensterdaten.ID->getName());
+								Conv_Str_char(Typ, Fensterdaten.ID->Zusatz);
+								px = Fensterdaten.ID->getX();
+								py = Fensterdaten.ID->getY();
+								Reset = false;
+							}
 
-								ImGui::InputText("Höhlennamen", Name, IM_ARRAYSIZE(Name));		HILFSMARKER
+							ImGui::InputText("Höhlennamen", Name, IM_ARRAYSIZE(Name));		HILFSMARKER
 								ImGui::InputText("Höhlenform", Typ, IM_ARRAYSIZE(Typ));			HILFSMARKER
 								ImGui::InputFloat("X Position", &px);
-								ImGui::InputFloat("Y Position", &py);
+							ImGui::InputFloat("Y Position", &py);
 							}
 							/* Updaten von Missionsziel  - Anzupassen ist die Beschreibung und die Positionierung */
 							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 1)
 							{
-								if (Reset)
-								{
-									Conv_Str_char(Beschreibung, MISSIONSDATEN[0].getTyp());
-									px = MISSIONSDATEN[0].getX();
-									py = MISSIONSDATEN[0].getY();
-									Reset = false;
-								}
-								ImGui::InputText("Beschreibung", Beschreibung, IM_ARRAYSIZE(Beschreibung));		HILFSMARKER
+							if (Reset)
+							{
+								Conv_Str_char(Beschreibung, Fensterdaten.ID->Zusatz);
+								px = Fensterdaten.ID->getX();
+								py = Fensterdaten.ID->getY();
+								Reset = false;
+							}
+							ImGui::InputText("Beschreibung", Beschreibung, IM_ARRAYSIZE(Beschreibung));		HILFSMARKER
 								ImGui::InputFloat("X Position", &px);
-								ImGui::InputFloat("Y Position", &py);
+							ImGui::InputFloat("Y Position", &py);
 							}
 							/* Updaten von Exotic Spot  - Anzupassen ist die Positionierung */
 							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 2)
 							{
-								if (Reset)
-								{
-									px = MISSIONSDATEN[0].getX();
-									py = MISSIONSDATEN[0].getY();
-									Reset = false;
-								}
-								ImGui::InputFloat("X Position", &px);
-								ImGui::InputFloat("Y Position", &py);
+							if (Reset)
+							{
+								px = Fensterdaten.ID->getX();
+								py = Fensterdaten.ID->getY();
+								Reset = false;
+							}
+							ImGui::InputFloat("X Position", &px);
+							ImGui::InputFloat("Y Position", &py);
 							}
 							/* Updaten von Boss Spot  - Anpassen des Namens und der Positionierung */
 							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 3)
 							{
-								if (Reset)
-								{
-									Conv_Str_char(Beschreibung, MISSIONSDATEN[0].getTyp());
-									px = MISSIONSDATEN[0].getX();
-									py = MISSIONSDATEN[0].getY();
-									Reset = false;
-								}
-								ImGui::InputText("Beschreibung", Beschreibung, IM_ARRAYSIZE(Beschreibung));		HILFSMARKER
+							if (Reset)
+							{
+								Conv_Str_char(Beschreibung, Fensterdaten.ID->Zusatz);
+								px = Fensterdaten.ID->getX();
+								py = Fensterdaten.ID->getY();
+								Reset = false;
+							}
+							ImGui::InputText("Beschreibung", Beschreibung, IM_ARRAYSIZE(Beschreibung));		HILFSMARKER
 								ImGui::InputFloat("X Position", &px);
-								ImGui::InputFloat("Y Position", &py);
-							}				
+							ImGui::InputFloat("Y Position", &py);
+							}
 
 							if (ImGui::Button("Updaten"))
 							{
-								/* 
-									Übergebe Abhängig von den zu Übertragenden Werte 
-									0 -> Ist die Aktualisierung der Mission Namen - 
+								/*
+									Übergebe Abhängig von den zu Übertragenden Werte
+									0 -> Ist die Aktualisierung der Mission Namen -
 									Achtung:
-										Namens Änderungen beziehen sich auf "alle" einträge 
-										Ren und Positionänderungen beziehen sich auf "Landung" 
+										Namens Änderungen beziehen sich auf "alle" einträge
+										Ren und Positionänderungen beziehen sich auf "Landung"
 
 									1 -> Höhlendaten  - Dieser Eintrag sollte "nur" einmalig existieren,				wodurch keine Besonderheit beachtet werden muss
 									2 -> Missionsziel - Dieser Eintrag sollte "nur" einmalig exisiteren,				wodurch keine Besonderheit beachtet werden muss
@@ -2031,42 +2042,46 @@ int main()
 								*/
 								if (Fensterdaten.ID == 0)
 									SQL.Daten_Updaten(0, Name, Typ, Beschreibung, px, py, ren, Fensterdaten.ID);
-								if(Fensterdaten.ID != 0 && Fensterdaten.ID ->Index == 0)
-									SQL.Daten_Updaten(Name,Typ,px,py, Fensterdaten.ID);
+								if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 0)
+									SQL.Daten_Updaten(Name, Typ, px, py, Fensterdaten.ID);
+								if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 1)
+									SQL.Daten_Updaten(2, Name, Typ, Beschreibung, px, py, ren, Fensterdaten.ID);
+								if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 2)
+									SQL.Daten_Updaten(3, Name, Typ, Beschreibung, px, py, ren, Fensterdaten.ID);
+								if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 3)
+									SQL.Daten_Updaten(4, Name, Typ, Beschreibung, px, py, ren, Fensterdaten.ID);
 								Updaten = false;
 							}
 						}
 					}
 				}
-			}
-			
-			
 
-			
-
-			if (ImGui::Button("SQL Loeschen"))
-				Löschen = !Löschen;
-			if (Löschen)
-			{
-				static char str2[128] = "orange";
-				ImGui::InputText("input text", str2, IM_ARRAYSIZE(str2));
-				ImGui::SameLine(); HelpMarker(
-					"USER:\n"
-					"Hold SHIFT or use mouse to select text.\n"
-					"CTRL+Left/Right to word jump.\n"
-					"CTRL+A or double-click to select all.\n"
-					"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-					"CTRL+Z,CTRL+Y undo/redo.\n"
-					"ESCAPE to revert.\n");
-
-				if (ImGui::Button("Loeschen"))
+				/* Löschen */
 				{
-					SQL.Daten_Löschen(string(str2));
-					Löschen = false;
+					if (ImGui::Button("SQL Loeschen"))
+						Löschen = !Löschen;
+					if (Löschen)
+					{
+						static char str2[128] = "orange";
+						ImGui::InputText("input text", str2, IM_ARRAYSIZE(str2));
+						ImGui::SameLine(); HelpMarker(
+							"USER:\n"
+							"Hold SHIFT or use mouse to select text.\n"
+							"CTRL+Left/Right to word jump.\n"
+							"CTRL+A or double-click to select all.\n"
+							"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
+							"CTRL+Z,CTRL+Y undo/redo.\n"
+							"ESCAPE to revert.\n");
+
+						if (ImGui::Button("Loeschen"))
+						{
+							SQL.Daten_Löschen(string(str2));
+							Löschen = false;
+						}
+					}						
 				}
 			}
-
-
+				
 			// Liste der Missionen
 			if (!Mission_Ausgewählt)
 			{

@@ -350,6 +350,12 @@ bool SQL_EINLESEN = false;				/* Bit zur Steuerung, ob beim Start das SQL eingel
 bool Interface_Hovered;					/* Bit zur Steuerung, das sobald dass Interface "angewählt" ist, nicht die Karte "bewegt" wird */
 bool Statusanzeige = false;				/* Bit zur Steuerung, dass die Anzeige nur "einaml" pro klick stattfindet */
 bool EINGELOGGT = true;
+bool Updaten = false;
+bool Löschen = false;
+bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
+bool Mission_Ausgewählt = false;
+bool Reset = false;
+bool Wechsel = false;
 
 bool compare(string t1, char* t2)
 {
@@ -952,15 +958,74 @@ public:
 		Höhlenentraces[Fensterdaten.Arrayindex].Y = y;
 	}
 
-	/* TODO(Im Programm) nach Loginfenster zum entfernen einzelner Objekte als Datenbank Manager */
-	void Daten_Löschen(string name)
+	/* TODO(Im Programm) nach Loginfenster zum entfernen einzelner Objekte als Datenbank Manager 
+		Löschen von einer "Mission" und damit Verbundene Unterpunkte	- 'Missionsname', 'Missionstyp', 0
+		Löschen einer Höhle												- 'Name'		,			 '', 1
+	*/
+	void Daten_Löschen(string name,string Zusatz, int index)
 	{
-		//delete
-		//pstmt = con->prepareStatement("DELETE FROM inventory WHERE name = ?");
-		//pstmt->setString(1, name);
-		//result = pstmt->executeQuery();
-		cout << FUNKTIONSLOS << endl; //cout << "Zeile gelöscht." << endl;
-		;
+		/* Variablen Deklaration */
+		ostringstream ss;
+		uint Unr = 0;
+
+		/* Basisn Initialiseriung */
+		ss << "DELETE FROM ";
+		/* Ablauf für die Löschung einer Mission*/
+		if (index == 0)
+		{
+			ss << MISSIONEN;
+			ss << " WHERE " ;
+			ss << "Missionsname = ?" << " AND ";		
+			ss << "Missionstyp = ?";
+		}
+		/* Ablauf für die Löschung einer Höhle*/
+		else if (index == 1)
+		{
+			ss << CAVEENTRACE;
+			ss << " WHERE name = ?";
+		}
+		/* Ablauf für die Löschung eines Missionsziels, Eco Spots, Boss Spots*/
+		else if (index == 2 || index == 3 || index == 4)
+		{
+			ss << MISSIONEN;
+			ss << " WHERE ";
+			ss << "Missionsname = ?" << " AND ";
+			ss << "Missionsbeschreibung = ?";			
+		}
+
+		pstmt = con->prepareStatement(ss.str().c_str());
+
+		Unr++; pstmt->setString(Unr, name);
+		if (index != 1) { Unr++; pstmt->setString(Unr, Zusatz); }
+
+		result = pstmt->executeQuery();	
+
+		if (index == 0)
+		{
+			Missionsliste = SQL.Daten_Lesen_Missionsname();
+			MISSIONSDATEN.clear();
+			EXOTICknoten.clear();
+			BOSSEknoten.clear();
+			Mission_Ausgewählt = false;
+		}
+		else if (index == 1)
+		{			
+			Höhlenentraces.erase(Höhlenentraces.begin() + Fensterdaten.Arrayindex);
+		}
+		else if (index == 2)
+		{
+			MISSIONSDATEN.erase(MISSIONSDATEN.begin() + Fensterdaten.Arrayindex);
+		}
+		else if (index == 3)
+		{
+			EXOTICknoten.erase(EXOTICknoten.begin() + Fensterdaten.Arrayindex);
+		}
+		else if (index == 4)
+		{
+			BOSSEknoten.erase(BOSSEknoten.begin() + Fensterdaten.Arrayindex);
+		}
+		Fensterdaten.ID = 0;
+		Fensterdaten.Arrayindex = 99999;
 	}
 }SQL;
 
@@ -1719,15 +1784,7 @@ int main()
 	ourShader.use();
 	ourShader.setInt("texture1", 0);
 	ourShader.setInt("texture2", 1);
-
-	static bool Updaten = false;
-	static bool Löschen = false;
-	static bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
-	static bool Mission_Ausgewählt = false;
-	static bool Reset = false;
-	static bool Wechsel = false;
-
-
+	
 	float radians = 0.0;
 
 	// render loop
@@ -1760,8 +1817,7 @@ int main()
 				Tempo.push_back(BOSSEknoten[i]);
 			Bossspots.update(Tempo);
 		}
-		
-		
+			
 		Cam.view = glm::translate(Cam.view, glm::vec3(0.0f, 0.0f, -3.0f));
 		Cam.projection = glm::perspective(glm::radians(45.0f), Fensterdaten.getX() / Fensterdaten.getY(), 0.1f, 100.0f);
 
@@ -2058,24 +2114,22 @@ Reset = false;
 
 				/* Löschen */
 				{
-					if (ImGui::Button("SQL Loeschen"))
+					if (ImGui::Button("Auswahl Loeschen?"))
 						Löschen = !Löschen;
 					if (Löschen)
 					{
-						static char str2[128] = "orange";
-						ImGui::InputText("input text", str2, IM_ARRAYSIZE(str2));
-						ImGui::SameLine(); HelpMarker(
-							"USER:\n"
-							"Hold SHIFT or use mouse to select text.\n"
-							"CTRL+Left/Right to word jump.\n"
-							"CTRL+A or double-click to select all.\n"
-							"CTRL+X,CTRL+C,CTRL+V clipboard.\n"
-							"CTRL+Z,CTRL+Y undo/redo.\n"
-							"ESCAPE to revert.\n");
-
-						if (ImGui::Button("Loeschen"))
+						if (ImGui::Button("Sicher?"))
 						{
-							SQL.Daten_Löschen(string(str2));
+							if (Fensterdaten.ID == 0)
+								SQL.Daten_Löschen(MISSIONSDATEN[0].name, MISSIONSDATEN[0].Missionstyp,0);
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 0)
+								SQL.Daten_Löschen(Fensterdaten.ID ->name, "", 1);
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 1)
+								SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 2);
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 2)
+								SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 3);
+							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 3)
+								SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 4);
 							Löschen = false;
 						}
 					}						

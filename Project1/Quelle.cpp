@@ -313,7 +313,7 @@
 	#define SQL_WO string(" WHERE ")
 
 	#define CAVEENTRACE string("`caveentrace`")
-	#define INVENTORY string("inventory")
+	#define BENUTZERVERWALTUNG string("`Benutzerverwaltung`")
 	#define MISSIONEN string("`mission`")
 	
 
@@ -327,6 +327,10 @@
 	const std::string server = "tcp://127.0.0.1:3306";
 	const std::string username = "Hengar";
 	const std::string password = "Affenbrot12";
+
+	std::string Benutzername = "";
+	std::string Passwort = "";
+	int loginlvl = -1;
 
 	/// Holds all state information relevant to a character as loaded using FreeType
 	struct Character
@@ -349,7 +353,6 @@
 bool SQL_EINLESEN = false;				/* Bit zur Steuerung, ob beim Start das SQL eingelesen werden soll */
 bool Interface_Hovered;					/* Bit zur Steuerung, das sobald dass Interface "angewählt" ist, nicht die Karte "bewegt" wird */
 bool Statusanzeige = false;				/* Bit zur Steuerung, dass die Anzeige nur "einaml" pro klick stattfindet */
-bool EINGELOGGT = true;
 bool Updaten = false;
 bool Löschen = false;
 bool Mission_Caveentrace = false;		// Fakse = Inventory True = Caveentrace
@@ -360,6 +363,15 @@ bool Wechsel = false;
 bool compare(string t1, char* t2)
 {
 	return t1 == string(t2);
+}
+
+string PasswortVerschlüsseln(string input)
+{
+	string ret;
+	char key = 't';
+	for(uint i = 0; i < input.size(); i ++)
+		ret = input[i] ^ key;
+	return ret;
 }
 
 /* Klasse für die Datenspeicherung innerhalb eines SQL Systems */
@@ -376,6 +388,9 @@ class PRIVAT_MYSQL
 
 	sql::PreparedStatement *Alle_Daten_Lesen_Mission_Einmalig;
 	sql::PreparedStatement *Einzel_Daten_Lesen_Mission;
+
+	sql::PreparedStatement *Benutzerlesen;
+	sql::PreparedStatement *Benutzereinfügen;
 
 	sql::Statement *stmt;
 
@@ -405,6 +420,7 @@ public:
 		{
 			Preparestatments();
 			if (SQL_EINLESEN) Vorgefertigte_Daten_Einlesen();
+			SQL_EINLESEN = false;
 		}
 		catch (...)
 		{
@@ -438,6 +454,8 @@ public:
 		Alle_Daten_Lesen_Mission = con->prepareStatement(SQL_WÄHLE_ALLE_VON + MISSIONEN + ";");
 
 		Alle_Daten_Lesen_Mission_Einmalig = con->prepareStatement(SQL_WÄHLE_EINZIGARTIGE + MISSIONEN + ";");
+
+		Benutzereinfügen = con->prepareStatement(SQL_EINFÜGEN_IN + BENUTZERVERWALTUNG + "(name, passwort, level) VALUES(?,?,?);");
 	}
 
 	/* Funktion zum Einfügen der Höhlen Daten - Speicher der Position x + y, der Grundriss Datei und der Typischen Erz Knoten Anzahl*/
@@ -473,7 +491,18 @@ public:
 			cout << "Achtung schreibfehler, umlaute müssen in \"alt\" geschrieben werden." << endl;
 		}
 	}
+	/* Funktion zum Einfügen eines neuen Benutzers - Für den Login*/
+	void Daten_Einfügen(string name, string passwort, int Lvl)
+	{
+		Benutzereinfügen->setString(1, name);
+		/* Passwort Verschlüsselungsfunktion hier einfügen*/
+		Benutzereinfügen->setString(2, PasswortVerschlüsseln(passwort));
+		Benutzereinfügen->setInt(3, Lvl);
 
+		Benutzereinfügen->execute();
+		cout << "Neuen Benutzer hinzugefuegt." << endl;
+	}
+	
 	/* Vorgefertigte Konfiguration */
 	void Vorgefertigte_Daten_Einlesen()
 	{
@@ -664,6 +693,11 @@ public:
 		stmt->execute("CREATE TABLE " + MISSIONEN + " (id serial PRIMARY KEY, Position_X FLOAT, Position_Y FLOAT, Missionsname VARCHAR(50), Missionstyp VARCHAR(50), Missionsbeschreibung VARCHAR(150), Ren INTEGER, Knoteninfo INTEGER);");
 		cout << "Finished creating table" + MISSIONEN << endl;
 
+		stmt->execute("DROP TABLE IF EXISTS " + BENUTZERVERWALTUNG);
+		cout << "Finished dropping table " + BENUTZERVERWALTUNG + " (if existed)" << endl;
+		stmt->execute("CREATE TABLE " + BENUTZERVERWALTUNG + " (id serial PRIMARY KEY, name VARCHAR(50), passwort VARCHAR(50), level INTEGER);");
+		cout << "Finished creating table" + BENUTZERVERWALTUNG << endl;
+
 		delete stmt;
 
 		Vorgefertigte_Daten_Einlesen();
@@ -765,11 +799,27 @@ public:
 			else if (result->getInt(8) == 2)
 			{
 				BOSSEknoten.push_back(BASISATTRIBUTE(result->getDouble(2), result->getDouble(3), 3, result->getString(4).c_str(), result->getString(6).c_str()));
-			}
-			
+			}			
 		}
 
 		Einzel_Daten_Lesen_Mission->close();
+		return temp;
+	}
+
+	/* Funktion zum auslesen eines bestimmten Benutzernamens - soll das Passwort und das Benutzerlevel wiedergeben */
+	pair<string, int> Daten_Lesen(string name)
+	{
+		Benutzerlesen = con->prepareStatement(SQL_WÄHLE_ALLE_VON + BENUTZERVERWALTUNG + SQL_WO + "name='" + name + "'");
+
+		pair<string, int> temp;
+		temp.second = -2;							/* Loginname nicht gefunden */
+
+		result = Benutzerlesen->executeQuery();
+		while (result->next())
+		{
+			temp.first = result->getString(3);
+			temp.second = result->getInt(4);
+		}
 		return temp;
 	}
 
@@ -956,6 +1006,20 @@ public:
 		Höhlenentraces[Fensterdaten.Arrayindex].Zusatz = Höhlenentraces[Fensterdaten.Arrayindex].Grundriss = Typ;
 		Höhlenentraces[Fensterdaten.Arrayindex].X = x;
 		Höhlenentraces[Fensterdaten.Arrayindex].Y = y;
+	}
+
+	/* Funktion zum aktualisieren des Passwortes */
+	void Daten_Updaten(string name, string passwort, int level)
+	{
+
+		pstmt = con->prepareStatement("UPDATE " + BENUTZERVERWALTUNG + " SET passwort = ?, level = ? WHERE name = ?");
+
+		/* Verschlüssselung hier einfügen */
+		pstmt->setString(1, PasswortVerschlüsseln(passwort));
+		pstmt->setInt(2, level);
+		pstmt->setString(3, name);
+
+		pstmt->executeQuery();
 	}
 
 	/* TODO(Im Programm) nach Loginfenster zum entfernen einzelner Objekte als Datenbank Manager 
@@ -1539,94 +1603,97 @@ inline void processInput(GLFWwindow *window)
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 
-	/* Abschnitt der Kartnebewegung mit der Maus */
-	if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID == 0 && !Interface_Hovered)
+	if(!Interface_Hovered)
 	{
-		double N_X, N_Y, CX, CY;
-
-		glfwGetCursorPos(window, &N_X, &N_Y);
-
-		CX = N_X - Fensterdaten.Maus.X;
-
-		CY = Fensterdaten.Maus.Y - N_Y;
-		
-		Cam.C.x += (CX / 100.0);
-		if (Cam.C.x < -20.0)
-			Cam.C.x = -20.0;
-		if (Cam.C.x > 20.0)
-			Cam.C.x = 20.0;
-				
-		Cam.C.y += (CY / 100.0);
-		if (Cam.C.y < -20.0)
-			Cam.C.y = -20.0;
-		if (Cam.C.y > 20.0)
-			Cam.C.y = 20.0;
-		
-	}
-	else if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID != 0 && !Interface_Hovered)
-	{
-		double N_X, N_Y, CX, CY;
-
-		glfwGetCursorPos(window, &N_X, &N_Y);
-
-		CX = N_X - Fensterdaten.Maus.X;
-
-		CY = Fensterdaten.Maus.Y - N_Y;
-
-		Fensterdaten.ID ->X += (CX / 100.0);
-		if (Fensterdaten.ID->X < -20.0)
-			Fensterdaten.ID->X = -20.0;
-		if (Fensterdaten.ID->X > 20.0)
-			Fensterdaten.ID->X = 20.0;
-
-		Fensterdaten.ID->Y += (CY / 100.0);
-		if (Fensterdaten.ID->Y < -20.0)
-			Fensterdaten.ID->Y = -20.0;
-		if (Fensterdaten.ID->Y > 20.0)
-			Fensterdaten.ID->Y = 20.0;
-	}
-
-	glfwGetCursorPos(window, &Fensterdaten.Maus.X, &Fensterdaten.Maus.Y);
-	Fensterdaten.Maus.NX = (Fensterdaten.Maus.X / (Fensterdaten.X * 0.5)) - 1.0;
-	Fensterdaten.Maus.NY = (Fensterdaten.Maus.Y / (Fensterdaten.Y * 0.5)) - 1.0;
-
-	// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
-	if (Fensterdaten.Maus.Is_Rechts_Klickt && !Statusanzeige)
-	{
-		Objektanwahl();
-	}
-	if (!Fensterdaten.Maus.Is_Rechts_Klickt)
-	{
-		Statusanzeige = false;
-	}
-
-	/* Die Tastertur-Steuerung um sich auf der Karte nach */
-	{
-		/* Oben zu bewegen. */
-		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) 
+		/* Abschnitt der Kartnebewegung mit der Maus */
+		if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID == 0 && !Interface_Hovered)
 		{
-			if (Cam.C.y > -20.0)
-				Cam.C.y -= 0.001;
+			double N_X, N_Y, CX, CY;
+
+			glfwGetCursorPos(window, &N_X, &N_Y);
+
+			CX = N_X - Fensterdaten.Maus.X;
+
+			CY = Fensterdaten.Maus.Y - N_Y;
+
+			Cam.C.x += (CX / 100.0);
+			if (Cam.C.x < -20.0)
+				Cam.C.x = -20.0;
+			if (Cam.C.x > 20.0)
+				Cam.C.x = 20.0;
+
+			Cam.C.y += (CY / 100.0);
+			if (Cam.C.y < -20.0)
+				Cam.C.y = -20.0;
+			if (Cam.C.y > 20.0)
+				Cam.C.y = 20.0;
+
 		}
-		/* Unten zu bewegen. */
-		if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) 
+		else if (Fensterdaten.Maus.Is_Links_Klickt && Fensterdaten.ID != 0 && !Interface_Hovered)
 		{
-			if (Cam.C.y < 20.0)
-				Cam.C.y += 0.001;
+			double N_X, N_Y, CX, CY;
+
+			glfwGetCursorPos(window, &N_X, &N_Y);
+
+			CX = N_X - Fensterdaten.Maus.X;
+
+			CY = Fensterdaten.Maus.Y - N_Y;
+
+			Fensterdaten.ID->X += (CX / 100.0);
+			if (Fensterdaten.ID->X < -20.0)
+				Fensterdaten.ID->X = -20.0;
+			if (Fensterdaten.ID->X > 20.0)
+				Fensterdaten.ID->X = 20.0;
+
+			Fensterdaten.ID->Y += (CY / 100.0);
+			if (Fensterdaten.ID->Y < -20.0)
+				Fensterdaten.ID->Y = -20.0;
+			if (Fensterdaten.ID->Y > 20.0)
+				Fensterdaten.ID->Y = 20.0;
 		}
-		/* Rechts zu bewegen. */
-		if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) 
+
+		glfwGetCursorPos(window, &Fensterdaten.Maus.X, &Fensterdaten.Maus.Y);
+		Fensterdaten.Maus.NX = (Fensterdaten.Maus.X / (Fensterdaten.X * 0.5)) - 1.0;
+		Fensterdaten.Maus.NY = (Fensterdaten.Maus.Y / (Fensterdaten.Y * 0.5)) - 1.0;
+
+		// Die Steuerung um sich auf der Karte nach Oben zu bewegen.
+		if (Fensterdaten.Maus.Is_Rechts_Klickt && !Statusanzeige)
 		{
-			if (Cam.C.x > -20.0)
-				Cam.C.x -= 0.001;
+			Objektanwahl();
 		}
-		/* Links zu bewegen. */
-		if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) 
+		if (!Fensterdaten.Maus.Is_Rechts_Klickt)
 		{
-			if (Cam.C.x < 20.0)
-				Cam.C.x += 0.001;
+			Statusanzeige = false;
 		}
-	}	
+
+		/* Die Tastertur-Steuerung um sich auf der Karte nach */
+		{
+			/* Oben zu bewegen. */
+			if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+			{
+				if (Cam.C.y > -20.0)
+					Cam.C.y -= 0.001;
+			}
+			/* Unten zu bewegen. */
+			if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+			{
+				if (Cam.C.y < 20.0)
+					Cam.C.y += 0.001;
+			}
+			/* Rechts zu bewegen. */
+			if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+			{
+				if (Cam.C.x > -20.0)
+					Cam.C.x -= 0.001;
+			}
+			/* Links zu bewegen. */
+			if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+			{
+				if (Cam.C.x < 20.0)
+					Cam.C.x += 0.001;
+			}
+		}
+	}
 }
 
 /* Funktion zum laden von Texturen - Returnwert die Texture - Clean*/
@@ -1662,6 +1729,7 @@ inline uint loadTexture(char const * path)
 	return temp;
 };
 
+/* Funktion um ein Hilfstext anzuzeigen - Clean (Weil Beispielfunktion)*/
 inline void HelpMarker(const char* desc)
 {
 	ImGui::TextDisabled("(?)");
@@ -1675,6 +1743,7 @@ inline void HelpMarker(const char* desc)
 	}
 };
 
+/* Funktion zur Konvertierung von "const char*" zu "char*" - Clean */
 inline void Conv_Str_char(char * buf, string t)
 {
 	uint i;
@@ -1833,7 +1902,76 @@ int main()
 		/* Nütze Beginn und End wie eine Klammer und führe innerhalb das selbst erstellte Fenster aus - mit dem ImGui Namespace*/
 		{
 			ImGui::Begin("Interface Interaktive Map");                         /* Das Klammer aus für das eigene Interface mit Namensübergabe */
-			Interface_Hovered = ImGui::IsWindowHovered() || ImGui::IsAnyItemHovered();
+			Interface_Hovered = ImGui::IsWindowHovered() || ImGui::IsAnyItemHovered() || ImGui::IsItemHovered() || ImGui::IsAnyItemActive();// || ImGui::IsMouseHoveringRect();
+			
+			/* 
+				Einloggen - 1. Feld  Benutzername  2.Feld  Passwort   3. Feld Login
+				Login anklicken
+				try Select SQL - Ob der Name existent ist
+				Wenn Ja Vergleichen der Passwörter
+				Wenn Ja Setze eingeloggt auf true
+			*/
+			if (loginlvl < 0)
+			{
+				static char BENUTZERNAMEN[128] = "Benutzername";
+				static char PASSWORT[128] = "Passwort";
+				//static int Benutzerlevel = 2;
+
+				ImGui::InputText("Benutzername", BENUTZERNAMEN, IM_ARRAYSIZE(BENUTZERNAMEN));				HILFSMARKER
+				ImGui::InputText("Passwort", PASSWORT, IM_ARRAYSIZE(PASSWORT), ImGuiInputTextFlags_Password);								HILFSMARKER
+				//ImGui::InputInt("Anzahl", &Benutzerlevel);
+
+				if (ImGui::Button("Einloggen"))
+				{
+					pair<string, int> temp;
+					/* SQL Suche namen in Datenbank */
+					temp = SQL.Daten_Lesen(BENUTZERNAMEN);
+
+					/* Prüfen ob Benutzerlevel nicht -2 ist */
+					/* Passwort vergleichen */
+					if (temp.second != -2)
+					{
+						if (PasswortVerschlüsseln(PASSWORT) == temp.first)
+						{
+							loginlvl = temp.second;
+						}
+					}
+				}ImGui::SameLine();				
+				/**if (ImGui::Button("Updaten"))
+				{
+					pair<string, int> temp;
+					/* SQL Suche namen in Datenbank *
+					temp = SQL.Daten_Lesen(BENUTZERNAMEN);
+
+					/* Prüfen ob Benutzerlevel nicht -2 ist *
+					/* Passwort vergleichen *
+					if (temp.second != -2)
+					{
+						SQL.Daten_Updaten(BENUTZERNAMEN, PASSWORT, 2);
+					}
+				}ImGui::SameLine();	/**/
+				/**/if (ImGui::Button("Registieren"))
+				{
+					pair<string, int> temp;
+					/* SQL Suche namen in Datenbank */
+					temp = SQL.Daten_Lesen(BENUTZERNAMEN);
+
+					/* Prüfen ob Benutzerlevel nicht -2 ist */
+					/* Passwort vergleichen */
+					if (temp.second == -2)
+					{
+						SQL.Daten_Einfügen(BENUTZERNAMEN, PASSWORT, 1);
+					}
+				}/**/
+			}
+			else if (loginlvl >= 0)
+			{
+				if (ImGui::Button("Ausloggen"))
+				{
+					loginlvl = -1;
+				}
+			}
+
 			if (Mission_Ausgewählt)
 			{
 				if (ImGui::ArrowButton("##left", ImGuiDir_Left)) //ImGui::SameLine(0.0f, spacing);
@@ -1892,7 +2030,7 @@ int main()
 			x = Höhlenentraces[3].X;
 
 			/* Zur Steuerung von Update, Löschen und Hinzufügen muss man eingeloggt sein */
-			if (EINGELOGGT)
+			if (loginlvl >= 0)
 			{
 				/* Hinzufügen */
 				{
@@ -2117,22 +2255,22 @@ Reset = false;
 					if (ImGui::Button("Auswahl Loeschen?"))
 						Löschen = !Löschen;
 					if (Löschen)
-					{
-						if (ImGui::Button("Sicher?"))
 						{
-							if (Fensterdaten.ID == 0)
-								SQL.Daten_Löschen(MISSIONSDATEN[0].name, MISSIONSDATEN[0].Missionstyp,0);
-							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 0)
-								SQL.Daten_Löschen(Fensterdaten.ID ->name, "", 1);
-							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 1)
-								SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 2);
-							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 2)
-								SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 3);
-							else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 3)
-								SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 4);
-							Löschen = false;
+							if (ImGui::Button("Sicher?"))
+							{
+								if (Fensterdaten.ID == 0)
+									SQL.Daten_Löschen(MISSIONSDATEN[0].name, MISSIONSDATEN[0].Missionstyp, 0);
+								else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 0)
+									SQL.Daten_Löschen(Fensterdaten.ID->name, "", 1);
+								else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 1)
+									SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 2);
+								else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 2)
+									SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 3);
+								else if (Fensterdaten.ID != 0 && Fensterdaten.ID->Index == 3)
+									SQL.Daten_Löschen(Fensterdaten.ID->name, Fensterdaten.ID->Zusatz, 4);
+								Löschen = false;
+							}
 						}
-					}						
 				}
 			}
 				

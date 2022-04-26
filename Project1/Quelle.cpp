@@ -22,9 +22,6 @@
 
 using namespace std;
 
-//#define BOOST_SYSTEM_USE_UTF8
-//#define BOOST_SYSTEM_ENABLE_DEPRECATED
-
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/io_Service.hpp> 
 #include <boost/asio/write.hpp>
@@ -37,26 +34,12 @@ using namespace std;
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/asio.hpp>
 
-#ifdef BOOST_SYSTEM_ENABLE_DEPRECATED
-#define test
-#endif
-/**/
 using namespace boost::asio;
 using namespace boost::asio::ip;
 using boost::asio::ip::tcp;
 
-
+/* Netzwerk System */
 boost::asio::io_service ioservice;
-tcp::resolver resolv{ ioservice };
-tcp::socket tcp_socket{ ioservice };
-std::array<char, 4096> bytes;
-
-//tcp::endpoint tcp_endpoint{ tcp::v4(), 8000 };
-tcp::acceptor tcp_acceptor{ ioservice };// , tcp_endpoint };
-tcp::socket tcp_socket2{ ioservice };
-
-bool THREAD_DONE = false;
-bool socket_soffen = false;
 
 #ifdef _MSC_VER
 #pragma warning (disable: 4127)     // condition expression is constant
@@ -313,6 +296,16 @@ vector<Missionsdaten> MISSIONSDATEN;		/* Datenspeicher für die "vorhandenen" Mis
 vector<BASISATTRIBUTE> EXOTICknoten;		/* Datenspeicher für die "vorhandenen" Exotic Spots */
 vector<BASISATTRIBUTE> BOSSEknoten;			/* Datenspeicher für die "vorhandenen" Bosse */
 
+
+class CHATSPEICHER
+{
+	vector<string> Chatspeicher;
+public:
+
+
+};
+
+
 bool SQL_EINLESEN = false;				/* Bit zur Steuerung, ob beim Start das SQL eingelesen werden soll */
 bool Interface_Hovered;					/* Bit zur Steuerung, das sobald dass Interface "angewählt" ist, nicht die Karte "bewegt" wird */
 bool Statusanzeige = false;				/* Bit zur Steuerung, dass die Anzeige nur "einaml" pro klick stattfindet */
@@ -552,9 +545,15 @@ public:
 
 		Daten_Einfügen(1, 1, "Hochseilgarten", "Erkundung", "Erkunde Icarus");
 
-		Daten_Einfügen(1, 1, "Zufluss", "Aufbau", "Landung", 275);
-		Daten_Einfügen(1, 1, "Zufluss", "Aufbau", "Erreiche den markierten Ort.");
-		Daten_Einfügen(1, 1, "Zufluss", "Aufbau", "Errichte eine Kaserne.");
+		Daten_Einfügen(9.12004, 9.80004, "Zufluss", "Aufbau", "Landung", 275);
+		Daten_Einfügen(11.94, -15.51, "Zufluss", "Aufbau", "Erreiche den markierten Ort.");
+		Daten_Einfügen(12.06, -15.55, "Zufluss", "Aufbau", "Errichte eine Kaserne.");
+		Daten_Einfügen(14.23, -9.60001, "Zufluss", "Aufbau", "Exotic1");
+		Daten_Einfügen(12.05, -15.45, "Zufluss", "Aufbau", "6 warme + geschuetzte Schlafsaecke");
+		Daten_Einfügen(12, -15.54, "Zufluss", "Aufbau", "Kanonenofen");
+		Daten_Einfügen(12, -15.54, "Zufluss", "Aufbau", "Kochstelle");
+		Daten_Einfügen(11.97, -15.58, "Zufluss", "Aufbau", "Oxidator");
+
 
 		Daten_Einfügen(1, 1, "Zerbrochene Pfeile", "Erholung", "Landung", 150);
 		Daten_Einfügen(1, 1, "Zerbrochene Pfeile", "Erholung", "Beschaffe den Biosprengkopf von Absturzstelle Omega.");
@@ -566,10 +565,10 @@ public:
 		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Baue ein exotisches Materievorkommen vollstaeding ab.");
 		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Kehre mit exotischer Materie in den Orbit zurueck.");
 
-		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Landung", 250);
-		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Stelle Anbauausruestung her.");
-		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Errichte Anbauflaechen in einem Gewaechshaus(Glas-Gebaeude).");
-		Daten_Einfügen(1, 1, "Zahltag", "Extraktion", "Deponiere Aufgesitete (In Anbauflaechen) angebaute Ressourcen in der Frachtkapsel.");
+		Daten_Einfügen(1, 1, "Landschaft", "Hydrokultur", "Landung", 250);
+		Daten_Einfügen(1, 1, "Landschaft", "Hydrokultur", "Stelle Anbauausruestung her.");
+		Daten_Einfügen(1, 1, "Landschaft", "Hydrokultur", "Errichte Anbauflaechen in einem Gewaechshaus(Glas-Gebaeude).");
+		Daten_Einfügen(1, 1, "Landschaft", "Hydrokultur", "Deponiere Aufgesitete (In Anbauflaechen) angebaute Ressourcen in der Frachtkapsel.");
 
 		Daten_Einfügen(1, 1, "Einfall", "Scan", "Landung", 200);
 		Daten_Einfügen(1, 1, "Einfall", "Scan", "Scanne Ort 1");
@@ -1722,358 +1721,28 @@ inline void Conv_Str_char(char * buf, string t)
 	}
 }
 
-#define SYNCHRON_CLIENT
+#define SYNCHRON_SERVER
 
-#ifdef SERVER_DATEN_ABRUF
-	/* Client seitig */
-	void read_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
+bool THREAD_DONE = false;
+bool socket_soffen = false;
+
+class Netzwerk
+{	
+	/* Netzwerk System Komponente - Verarbeitung des IO ASIO System */
+	boost::asio::io_service &io;
+
+	/* Aufbau der Ip Auflösung */
+	tcp::resolver resolv;
+
+	/* 1. Schritt Portnummer des Systems */
+	unsigned short port_num = 3333;
+public:
+	Netzwerk(io_service &io) : io(io), resolv(io)
 	{
-		if (!ec)
-		{
-			std::cout.write(bytes.data(), bytes_transferred);
-			tcp_socket.async_read_some(buffer(bytes), read_handler);
-		}
-	}
-	void connect_handler(const boost::system::error_code &ec)
-	{
-		if (!ec)
-		{
-			std::string r =	"GET / HTTP/1.1\r\nHost: theboostcpplibraries.com\r\n\r\n"; //virtualberater.com
-			write(tcp_socket, buffer(r));
-			tcp_socket.async_read_some(buffer(bytes), read_handler);
-		}
-	}
-	void resolve_handler(const boost::system::error_code &ec, tcp::resolver::iterator it)
-	{
-		if (ec)
-		{
-			cout << "Resolve failed with msg:" << ec.message();
-		}
-		else
-		{
-			tcp::endpoint tcp_endpoints = *it;
-
-			tcp_socket.async_connect(*it, connect_handler);
-			cout << "Verbunden mit " << tcp_endpoints.address() << ":" << tcp_endpoints.port() << endl << endl;
-		}
-	}
-#endif
-
-#ifdef LISTEN_ALLGEMEIN_AUFRUF
-	/* Server Seitig */
-	void write_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
-	{
-		if (ec)
-		{
-			//write(tcp_socket2, buffer(test));
-			cout << ec.message();
-		}
-		else 
-		{
-			tcp_socket2.shutdown(tcp::socket::shutdown_send);
-		}
-	}
-	void accept_handler(const boost::system::error_code &ec)
-	{
-		if (ec)
-		{
-			cout << " Failed to Accept with Msg: " << ec.message() << endl;
-		}
-		else
-		{
-			std::stringstream response;
-			response << "HTTP/1.1 200 OK"			<< HTML_END_COLUM;
-			response <<								   HTML_END_COLUM;
-			response << "<html>"					<< HTML_END_COLUM;
-			response << "<body>"					<< HTML_END_COLUM;
-			response << "<h1>Hallo Welt </h1>"		<< HTML_END_COLUM;
-			response << "</body>"					<< HTML_END_COLUM;
-			response << "</html>"					<< HTML_END_COLUM;
-
-			//std::time_t now = std::time(nullptr);
-			//data2 = std::ctime(&now);
-			//async_write(tcp_socket2, buffer(response.str()), write_handler);
-			try {
-				//auto temp = boost::asio::buffer(response.str().data(), response.str().size());//
-				//string test = "test";
-				//ConstBufferSequenz z;
-				tcp_socket2.send(boost::asio::buffer(response.str()));
-				//tcp_socket2.write_some(temp);
-				//write(tcp_socket2, buffer(test));
-				//async_write(tcp_socket2, temp, write_handler);
-			}
-			catch (boost::system::error_code &e)
-			{
-				cout << e.message();
-				;
-			}
-			cout << response.str();
-		}
-	}
-#endif
-
-#ifdef DAY_TIME_LISTEN_ASYNC_SERVER
-	/* Daytime asynchron */
-	std::string make_daytime_string()
-	{
-		using namespace std; // For time_t, time and ctime;
-		time_t now = time(0);
-		return ctime(&now);
-	}
-	class tcp_connection : public boost::enable_shared_from_this<tcp_connection>
-	{
-		tcp::socket socket_;
-		std::string message_;
-
-		tcp_connection(boost::asio::io_context& io_context) : socket_(io_context)
-		{
-		}
-
-		void handle_write(const boost::system::error_code& /*error*/, size_t /*bytes_transferred*/)
-		{
-		}
-
-	public:
-		typedef boost::shared_ptr<tcp_connection> pointer;
-
-		static pointer create(boost::asio::io_context& io_context)
-		{
-			return pointer(new tcp_connection(io_context));
-		}
-
-		tcp::socket& socket()
-		{
-			return socket_;
-		}
-
-		void start()
-		{
-			message_ = make_daytime_string();
-
-			boost::asio::async_write(socket_, boost::asio::buffer(message_), boost::bind(&tcp_connection::handle_write, shared_from_this(),
-					boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
-		}
-	};
-	class tcp_server
-	{
-		boost::asio::io_context& io_context_;
-		tcp::acceptor acceptor_;
-
-		void start_accept()
-		{
-			tcp_connection::pointer new_connection = tcp_connection::create(io_context_);
-
-			acceptor_.async_accept(new_connection->socket(), boost::bind(&tcp_server::handle_accept, this, new_connection, boost::asio::placeholders::error));
-		}
-
-		void handle_accept(tcp_connection::pointer new_connection, const boost::system::error_code& error)
-		{
-			if (!error)
-			{
-				new_connection->start();
-			}
-
-			start_accept();
-		}
-	public:
-		tcp_server(boost::asio::io_context& io_context)	: io_context_(io_context),	acceptor_(io_context, tcp::endpoint(tcp::v4(), 13))
-		{
-			start_accept();
-		}		
-	};
-#endif
-
-#ifdef HEARTHBEAT_SERVER
-	void write_data(boost::asio::ip::tcp::socket& sock, std::string data)
-	{
-		boost::system::error_code error;
-		std::string msg;
-		int ch = data[0] - '0';
-		switch (ch)
-		{
-		case 1: msg = "Case 1\n"; break;
-		case 2: msg = "Case 2\n"; break;
-		case 3: msg = "Case 3\n"; break;
-		case 4: msg = "Case 4\n"; break;
-		default: msg = "Case default\n"; break;
-		}
-		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
-		if (!error)
-		{
-			std::cout << "Server sent " << msg << std::endl;
-		}
-		else
-		{
-			std::cout << "send failed: " << error.message() << std::endl;
-		}
-	};
-	std::string read_data(boost::asio::ip::tcp::socket& sock)
-	{
-		boost::asio::streambuf buf;
-		boost::asio::read_until(sock, buf, "\n");
-		std::string data = boost::asio::buffer_cast<const char*>(buf.data());
-		return data;
-	};
-	void process(boost::asio::ip::tcp::socket& sock)
-	{
-		while (1)
-		{
-			std::string data = read_data(sock);
-			std::cout << "Client's request is: " << data << std::endl;
-			if (data[0] == 'H')
-			{
-				std::string msg = "HEARTBEAT";
-				//data='5';
-				boost::asio::write(sock, boost::asio::buffer(msg + '\n'));
-				std::cout << "******************HEARTBEAT sent to clinet********************\n";
-			}
-			else
-				write_data(sock, data);
-		}
-	};	
-#endif
-
-#ifdef HEARTHBEAT_CLIENT
-	void read_data(boost::asio::ip::tcp::socket &sock)// for reading data
-	{
-		boost::system::error_code error;
-		// 	getting response from server
-		boost::asio::streambuf receive_buffer;
-		//boost::asio::read(socket, receive_buffer, boost::asio::transfer_all(), error);
-		boost::asio::read_until(sock, receive_buffer, "\n");
-		if (error && error != boost::asio::error::eof)
-		{
-			std::cout << "receive failed: " << error.message() << std::endl;
-		}
-		else
-		{
-			const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
-			std::cout << "Received " << data << std::endl;
-		}
-	};
-	void write_data(boost::asio::ip::tcp::socket &sock)
-	{
-		//while(1){
-		//Message to sent for server
-		std::string msg;
-		std::cout << "Enter the message to sent\n";
-		//std::cin>>msg;
-		std::getline(std::cin, msg); //for getting complete line
-		boost::system::error_code error;
-
-		//Write message to socket
-		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
-		if (!error)
-		{
-			std::cout << "Client sent " << msg << std::endl;
-		}
-		else
-		{
-			std::cout << "send failed: " << error.message() << std::endl;
-		}
-		//}
-	};
-	void IOthread(boost::asio::ip::tcp::socket &sock)
-	{
-		write_data(sock);
-		read_data(sock);
-	}
-	void sleepThread(boost::asio::ip::tcp::socket & sock)
-	{
-		std::this_thread::sleep_for(std::chrono::seconds(5)); //sleep thread for 5 seconds
-		//boost::system::error_code error;
-		std::string msg = "HEARTBEAT";
-		std::cout << "Trying to write\n";
-		boost::asio::write(sock, boost::asio::buffer(msg + '\n'));
-		std::cout << "###### Requested for HEARTBEAT#########\n";
-		//read_data(sock);
-		//std::cout<<"\nReceived "<<str<<std::endl;
-		boost::asio::streambuf receive_buffer;
-		boost::asio::read_until(sock, receive_buffer, "\n");
-		const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
-		std::cout << "******************Received   " << data << "  *************  " << std::endl;
-		sleepThread(sock); //call recursively 
-	}	
-#endif
-
-#ifdef CHAT_SERVER
-	void write_data(boost::asio::ip::tcp::socket & sock)
-	{
-		boost::system::error_code error;
-		std::string msg;
-		std::cout << "Enter the message \n";
-		//std::cin>>msg;
-		std::getline(std::cin, msg); //For getting complete line 
-		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
-		if (!error)
-		{
-			std::cout << "Server sent hello message!" << std::endl;
-		}
-		else
-		{
-			std::cout << "send failed: " << error.message() << std::endl;
-		}
-	};
-	std::string read_data(boost::asio::ip::tcp::socket & sock)
-	{
-		boost::asio::streambuf buf;
-		boost::asio::read_until(sock, buf, "\n");
-		std::string data = boost::asio::buffer_cast<const char*>(buf.data());
-		return data;
-	};
-	void process(boost::asio::ip::tcp::socket & sock)
-	{
-		while (1)
-		{
-			std::string data = read_data(sock);
-			std::cout << "Client's request is: " << data << std::endl;
-
-			write_data(sock);
-		}
-	};	
-#endif
-#ifdef CHAT_CLIENT
-	std::string read_data(boost::asio::ip::tcp::socket &sock)
-	{
-		boost::system::error_code error;
-		// 	getting response from server
-		boost::asio::streambuf receive_buffer;
-		//boost::asio::read(socket, receive_buffer, boost::asio::transfer_all(), error);
-		boost::asio::read_until(sock, receive_buffer, "\n");
-		if (error && error != boost::asio::error::eof)
-		{
-			std::cout << "receive failed: " << error.message() << std::endl;
-		}
-		else
-		{
-			const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
-			std::cout << "Received " << data << std::endl;
-		}
 
 	};
-	void write_data(boost::asio::ip::tcp::socket &sock)
-	{
-		//Message to sent for server
-		std::string msg;
-		std::cout << "Enter the message to sent\n";
-		//std::cin>>msg;
-		std::getline(std::cin, msg); //for getting complete line
-		boost::system::error_code error;
 
-		//Write message to socket
-		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
-		if (!error)
-		{
-			std::cout << "Client sent hello message!" << std::endl;
-		}
-		else
-		{
-			std::cout << "send failed: " << error.message() << std::endl;
-		}
-
-	};
-#endif
-#ifdef SYNCHRON_SERVER
+	#ifdef SYNCHRON_SERVER
 	void process(boost::asio::ip::tcp::socket & sock)
 	{
 		/* Datensatz */
@@ -2104,152 +1773,27 @@ inline void Conv_Str_char(char * buf, string t)
 		std::cout << "server sent data : " << response.str() << std::endl;
 
 	}
-#endif
-
-void threads()
-{
-	#ifdef SERVER_DATEN_ABRUF
-	string adress = "theboostcpplibraries.com";////"https://www.virtualberater.com/";"localhost";
-		tcp::resolver::query q{ adress, "80" };
-		resolv.async_resolve(q, resolve_handler);
 	#endif
-	#ifdef LISTEN_ALLGEMEIN_AUFRUF
-		if (!socket_soffen)
-		{
-			tcp::resolver::query q{ "127.0.0.1", "8000" };
-			tcp::endpoint tcp_endpoint = *(resolv.resolve(q));
 
-			tcp_acceptor.open(tcp_endpoint.protocol());
-			tcp_acceptor.bind(tcp_endpoint);
-			tcp_acceptor.listen(socket_base::max_connections);
-			tcp_acceptor.async_accept(tcp_socket, accept_handler);
-			socket_soffen = true;
-		}
-	#endif
-	#ifdef DAY_TIME_LISTEN_ASYNC_SERVER
-		tcp_server server(ioservice);
-	#endif
-	
-	
-#ifdef HEARTHBEAT_SERVER
-		unsigned short port_num = 3333;
-		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
-		try
-		{
-			boost::asio::ip::tcp::acceptor acceptor(ioservice, ep.protocol());
-			acceptor.bind(ep);
-			acceptor.listen();
-			boost::asio::ip::tcp::socket sock(ioservice);
-			acceptor.accept(sock);
-
-			//   std::thread t([&sock]() {
-			//       hearbeatSender(sock);
-			//   });
-			process(sock);
-			//  t.join();
-
-		}
-		catch (boost::system::system_error& e)
-		{
-			std::cout << "Error occured! Error code = " << e.code()
-				<< ". Message: " << e.what();
-
-			cout << e.code().value();
-		}
-#endif
-#ifdef HEARTHBEAT_CLIENT
-		unsigned short port_num = 3333;
-
-		//socket creation
-		boost::asio::ip::tcp::socket sock(ioservice);
-
-		//connection
-		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
-
-		sock.connect(ep);
-		std::thread t2([&sock]() { sleepThread(sock); });
-		while (1)
-		{
-			IOthread(sock); //calling from main thread.
-		}
-#endif
-#ifdef CHAT_SERVER
-		//const int BACKLOG_SIZE = 30;
-
-		// Step 1. Here we assume that the server application has already obtained the protocol port number.
-		unsigned short port_num = 3333;
-		// Step 2. Creating a server endpoint.
-		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
-		//we need at least one io_service instance. boost::asio uses io_service to talk with operating system's I/O services. 
-		//while(1){
-		try
-		{
-			// Step 3. Instantiating and opening an acceptor socket.
-			boost::asio::ip::tcp::acceptor acceptor(ioservice, ep.protocol());
-			// Step 4. Binding the acceptor socket to the server endpint.
-			acceptor.bind(ep);
-			// Step 5. Starting to listen for incoming connection requests.
-			acceptor.listen();
-
-			// Step 6. Creating an active socket.
-			boost::asio::ip::tcp::socket sock(ioservice);
-			// Step 7. Processing the next connection request and connecting the active socket to the client.
-			acceptor.accept(sock);
-
-			//all steps for creating socket using boost::asio are done.
-
-			//Now perform read write operations in a function.
-			//while(1)
-			process(sock);
-
-		}
-		catch (boost::system::system_error &e)
-		{
-			std::cout << "Error occured! Error code = " << e.code()
-				<< ". Message: " << e.what();
-
-			cout << e.code().value();
-		}
-		//}
-#endif
-#ifdef CHAT_CLIENT
-		unsigned short port_num = 3333;
-
-		//socket creation
-		boost::asio::ip::tcp::socket socket(ioservice);
-
-		//connection
-		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
-
-		socket.connect(ep);
-		
-		while (1)
-		{
-
-			write_data(socket);
-			std::string str = read_data(socket);
-			//sleep(2); //wait for 2 second if you need otherwise comment it.
-		}
-
-#endif
-	try
+	void run()
 	{
-		#ifdef SYNCHRON_SERVER
+		try
+		{
+#ifdef SYNCHRON_SERVER
+			// Anzahl der Verbindungen
 			const int BACKLOG_SIZE = 30;
 
-			// Step 1. Hier fügen wir dem Server Programm die Protocoll Port Nummer.
-			unsigned short port_num = 3333;
 			// Step 2. Erstelle ein server endpoint.
 			boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
 
-			// Step 3. Instantiating and opening an acceptor socket.
+			// Step 3. Erstelle und öffne ein Acceptor socket.
 			boost::asio::ip::tcp::acceptor acceptor(ioservice, ep.protocol());
-			// Step 4. Binding the acceptor socket to the server endpint.
+			// Step 4. Binde ein acceptor socket für einen Server Endpunkt.
 			acceptor.bind(ep);
-			// Step 5. Starting to listen for incoming connection requests.
+			// Step 5. Starte auf einkommende Verbindungabfragen zu hören.
 			acceptor.listen(BACKLOG_SIZE);
 
-			// Step 6. Creating an active socket.
+			// Step 6. Erstelle ein aktiven Internet Socket.
 			boost::asio::ip::tcp::socket sock(ioservice);
 			// Step 7. Processing the next connection request and connecting the active socket to the client.
 			acceptor.accept(sock);
@@ -2257,7 +1801,6 @@ void threads()
 			//all steps for creating socket using boost::asio are done.
 
 			//Now perform read write operations in a function.
-			//while(1)
 			process(sock);
 
 			//tcp::acceptor acceptor(ioservice, tcp::endpoint(tcp::v4(), 13));
@@ -2267,7 +1810,7 @@ void threads()
 				tcp::socket socket(ioservice);
 				acceptor.accept(socket);
 
-				std::string message = "hi";
+				//std::string message = "hi";
 
 				std::stringstream response;
 				response << "HTTP/1.1 200 OK" << HTML_END_COLUM;
@@ -2283,100 +1826,84 @@ void threads()
 
 				cout << response.str() << endl;
 			}
-		#endif
+#endif
 
-		#ifdef DAYTIME_CLIENT
-				try
-				  {
-					if (argc != 2)
-					{
-					  std::cerr << "Usage: client <host>" << std::endl;
-					  return 1;
-					}
+#ifdef SYNCHRON_CLIENT
+			unsigned short port_num = 3333;
 
-					tcp::resolver resolver(ioservice);
-					tcp::resolver::results_type endpoints = resolver.resolve(argv[1], "daytime");
+			tcp::resolver::query q{ "127.0.0.1", "3333" };
 
-					tcp::socket socket(ioservice);
-					boost::asio::connect(socket, endpoints);
+			// Erstellen des Sockets
+			boost::asio::ip::tcp::socket socket(ioservice);
 
-					for (;;)
-					{
-					  boost::array<char, 128> buf;
-					  boost::system::error_code error;
+			// Verbindung erstellen
+			boost::asio::ip::tcp::endpoint ep = *(resolv.resolve(q));//(boost::asio::ip::address_v4::any(), port_num);
+			socket.connect(ep);
 
-					  size_t len = socket.read_some(boost::asio::buffer(buf), error);
+			// Nachricht die zum Server gesendet wird
+			const std::string msg = "Hello from Client!\n";
 
-					  if (error == boost::asio::error::eof)
-						break; // Connection closed cleanly by peer.
-					  else if (error)
-						throw boost::system::system_error(error); // Some other error.
+			boost::system::error_code error;
+			// Schreibe die Nachricht zum Socket
+			boost::asio::write(socket, boost::asio::buffer(msg), error);
+			if (!error)
+			{
+				/* Datensatz */
+				boost::asio::streambuf buf;
+				/* Datenempfang */
+				boost::asio::read_until(socket, buf, "\n");
+				/* Daten Umwandeln in String*/
+				std::string data = boost::asio::buffer_cast<const char*>(buf.data());
+				/* Ausgabe in der Server Konsole*/
+				std::cout << "Server Response is is: " << data << std::endl;
+			}
+			else
+			{
+				std::cout << "send failed: " << error.message() << std::endl;
+			}
 
-					  std::cout.write(buf.data(), len);
-					}
-				  }
-		#endif
+			//  Erhalten der Antwort vom Server
+			boost::asio::streambuf receive_buffer;
+			boost::asio::read(socket, receive_buffer, boost::asio::transfer_all(), error);
+			if (error && error != boost::asio::error::eof)
+			{
+				std::cout << "receive failed: " << error.message() << std::endl;
+			}
+			else
+			{
+				const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
+				std::cout << "Received " << data << std::endl;
+			}
 
-	#ifdef SYNCHRON_CLIENT
-				unsigned short port_num = 3333;
+#endif			
+		}
+		catch (std::exception& e)
+		{
+			std::cerr << e.what() << std::endl;
+		}
+		catch (...)
+		{
+		}
 
-				tcp::resolver::query q{ "127.0.0.1", "3333" };
-				//tcp::endpoint tcp_endpoint = *(resolv.resolve(q));
-
-				//socket creation
-				boost::asio::ip::tcp::socket socket(ioservice);				
-
-				//connection
-				boost::asio::ip::tcp::endpoint ep = *(resolv.resolve(q));//(boost::asio::ip::address_v4::any(), port_num);
-				socket.connect(ep);
-
-				//Message to sent for server
-				const std::string msg = "Hello from Client!\n";
-
-				boost::system::error_code error;
-				//Write message to socket
-				boost::asio::write(socket, boost::asio::buffer(msg), error);
-				if (!error)
-				{
-					//std::cout << "Client sent hello message!" << std::endl;
-					/* Datensatz */
-					boost::asio::streambuf buf;
-					/* Datenempfang */
-					boost::asio::read_until(socket, buf, "\n");
-					/* Daten Umwandeln in String*/
-					std::string data = boost::asio::buffer_cast<const char*>(buf.data());
-					/* Ausgabe in der Server Konsole*/
-					std::cout << "Server Response is is: " << data << std::endl;
-				}
-				else
-				{
-					std::cout << "send failed: " << error.message() << std::endl;
-				}
-				// getting response from server
-				boost::asio::streambuf receive_buffer;
-				boost::asio::read(socket, receive_buffer, boost::asio::transfer_all(), error);
-				if (error && error != boost::asio::error::eof)
-				{
-					std::cout << "receive failed: " << error.message() << std::endl;
-				}
-				else
-				{
-					const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
-					std::cout << "Received " << data << std::endl;
-				}
-
-	#endif
-
-
-		//ioservice.run();				
 	}
-	catch (std::exception& e)
-	{
-		std::cerr << e.what() << std::endl;
-	}
-	catch (...)
-	{
-	}
+}Telegram(ioservice);
+
+
+
+	/* 
+		Zu Transferierende Informationen
+
+			- Aktualliserungsaufruf Übermitteln
+
+			- Sofern Unterschiedliche Datenbanken . Datenbank Verbindung zum Server Senden . Prüfen - Datenaustausch bei Neu - Update - Löschen
+
+			- Chat Neue Nachrichten an alle Teilnehmer senden
+
+	 */
+
+void threads()
+{	
+	Telegram.run();
 	THREAD_DONE = false;
 }
 

@@ -148,6 +148,7 @@
     <ClCompile Include="stb imple.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Ausgeklammert.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imgui_impl_glfw.h" />

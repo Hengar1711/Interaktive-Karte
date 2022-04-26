@@ -95,6 +95,9 @@
     <ClInclude Include="Verbindung.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="Ausgeklammert.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMet.txt" />

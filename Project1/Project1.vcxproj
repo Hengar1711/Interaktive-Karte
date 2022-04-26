@@ -91,7 +91,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Programmierung\Externe\glm;E:\Fortbildung\glfw-3.3.6.bin.WIN64\include;E:\Fortbildung\Project1\Project1;E:\Fortbildung\Freetype\include;C:\Program Files\MySQL\Connector C++ 8.0\include\jdbc;E:\Programmierung\Bibliotheken\boost_1_78_0\boost;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programmierung\Externe\glm;E:\Fortbildung\glfw-3.3.6.bin.WIN64\include;E:\Fortbildung\Project1\Project1;E:\Fortbildung\Freetype\include;C:\Program Files\MySQL\Connector C++ 8.0\include\jdbc;E:\Programmierung\Bibliotheken\boost_1_78_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>
@@ -125,13 +125,13 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Programmierung\Externe\glm;E:\Fortbildung\glfw-3.3.6.bin.WIN64\include;E:\Fortbildung\Project1\Project1;E:\Fortbildung\Freetype\include;C:\Program Files\MySQL\Connector C++ 8.0\include\jdbc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Programmierung\Externe\glm;E:\Fortbildung\glfw-3.3.6.bin.WIN64\include;E:\Fortbildung\Project1\Project1;E:\Fortbildung\Freetype\include;C:\Program Files\MySQL\Connector C++ 8.0\include\jdbc;E:\Programmierung\Bibliotheken\boost_1_73_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>glfw3.lib;opengl32.lib;freetype.lib;mysqlcppconn.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Program Files\MySQL\Connector C++ 8.0\lib64\vs14;E:\Fortbildung\Freetype\win64;E:\Fortbildung\glfw-3.3.6.bin.WIN64\lib-vc2017;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Program Files\MySQL\Connector C++ 8.0\lib64\vs14;E:\Fortbildung\Freetype\win64;E:\Fortbildung\glfw-3.3.6.bin.WIN64\lib-vc2017;E:\Programmierung\Bibliotheken\boost_1_73_0\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -160,6 +160,7 @@
     <ClInclude Include="lodepng.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="Verbindung.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMet.txt" />

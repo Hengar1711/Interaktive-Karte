@@ -12,48 +12,51 @@
 		mysqlconn 8.0	|		https://dev.mysql.com/doc/connector-cpp/8.0/en/connector-cpp-introduction.html
 */
 
-#ifndef INCLUDES
-	#define INCLUDES
-	#include <stdlib.h>
-	#include <iostream>
-	#include <sstream>
-	#include <stdexcept>
 
-	#include <iostream>
-	#include <map>
-	#include <string>
-	#include <vector>
 
-	#include <glad/glad.h>
-	#include <GLFW/glfw3.h>
+#include "Shader.h"
+#include "lodepng.h"
 
-	#include <stb_image.h>
+#include "Interaktive_Karte.h"
+#include "Verbindung.h"
 
-	#include <glm/glm.hpp>
-	#include <glm/gtc/matrix_transform.hpp>
-	#include <glm/gtc/type_ptr.hpp>
+using namespace std;
 
-	#include <ft2build.h>
-	#include FT_FREETYPE_H
+//#define BOOST_SYSTEM_USE_UTF8
+//#define BOOST_SYSTEM_ENABLE_DEPRECATED
 
-	#include "Shader.h"
-	#include "lodepng.h"
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/io_Service.hpp> 
+#include <boost/asio/write.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/thread.hpp>
+#include <boost/chrono.hpp>
 
-	#include <iostream>
+#include <boost/bind/bind.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/asio.hpp>
 
-	#include "imgui\imgui.h"
-	#include "imgui\imgui_impl_glfw.h"
-	#include "imgui\imgui_impl_opengl3.h"
-
-	#include "mysql_connection.h"
-	#include <cppconn/driver.h>
-	#include <cppconn/exception.h>
-	#include <cppconn/prepared_statement.h>
-
-	#include "Interaktive_Karte.h"
-
-	using namespace std;
+#ifdef BOOST_SYSTEM_ENABLE_DEPRECATED
+#define test
 #endif
+/**/
+using namespace boost::asio;
+using namespace boost::asio::ip;
+using boost::asio::ip::tcp;
+
+
+boost::asio::io_service ioservice;
+tcp::resolver resolv{ ioservice };
+tcp::socket tcp_socket{ ioservice };
+std::array<char, 4096> bytes;
+
+//tcp::endpoint tcp_endpoint{ tcp::v4(), 8000 };
+tcp::acceptor tcp_acceptor{ ioservice };// , tcp_endpoint };
+tcp::socket tcp_socket2{ ioservice };
+
+bool THREAD_DONE = false;
+bool socket_soffen = false;
 
 #ifdef _MSC_VER
 #pragma warning (disable: 4127)     // condition expression is constant
@@ -95,260 +98,220 @@
 				Einfügen sobald "eingelogt"
 */
 	   
-	/* Klasse für die Vereinfachte X/Y Koordinaten innerhalb des Programms - bei Erweiterung sollte es auf glm::vec2 Basis aufgebaut werden*/
-	class Koordinaten
-	{
 
-	public:
-		float X, Y; // Variable für die Positionierung - Für eine Vereinfachung kann es zu glm::vec2 gewandelt werden
-		Koordinaten() {};
-		Koordinaten(float X, float Y) : X(X), Y(Y) {};
-		Koordinaten operator() (float X, float Y) { this->X = X; this->Y = Y; return *this; };
-		float getX() { return X; };
-		float getY() { return Y; };
+
+/* Basisklasse für den Namen - Für einen Vererbungszugriff - Trennt mögliche andere string  */
+class NAME
+{
+public:
+	string name;
+	/* Zero Access - Spätere Terminierung "zum erzwingen einen Namen zu Übergeben" */
+	NAME() {};
+	NAME(string name) : name(name) {};
+	/* Möglichkeit nach der Zuweisung weitere Zugriffe zu ermöglichen */
+	NAME operator() (string name) { this->name = name; return *this; };
+	string getName() { return name; };
+};
+
+/* Klasse zur Speicherung der Maus Steuerinformationen für einen Vereinfachten Zugriff */
+class MAUS
+{
+public:
+	bool Is_Links_Klickt, Is_Rechts_Klickt;
+	int Action;
+	double X, Y, Z;
+	float NX, NY;
+};
+
+/* Stark Vereinfachte Kamera - Positionierung (C) mithilfe von vec3 - Speicher der View und projection Matrix */
+class Simple_Cam
+{
+public:
+	glm::vec3 C;
+	glm::mat4 view = glm::mat4(1.0f);
+	glm::mat4 projection = glm::mat4(1.0f);
+} Cam;
+
+/* Klassen für die Klassenvererbung von Koordinaten und Name - Zusammengefaster/Polymorpher Zugriff zu den "Targets" */
+class BASISATTRIBUTE : public Koordinaten, public NAME
+{
+public:
+	int Index;
+	string Zusatz;
+
+	BASISATTRIBUTE() {};
+	BASISATTRIBUTE(float x, float y, int Index, string name, string Zusatz) : Index(Index)
+	{
+		this->X = x;
+		this->Y = y;
+		this->name = name;
+		this->Zusatz = Zusatz;
+	}
+
+	operator glm::vec2()
+	{
+		return glm::vec2(X, Y);
+	}
+
+	glm::vec2 getKoordinaten()
+	{
+		return  glm::vec2(X, Y);
+	}
+};
+
+/* Klasse für die Zusammenfassung der Höhlendaten und verbinden mit der Basisanwahl */
+class Höhlendaten : public BASISATTRIBUTE
+{
+
+public:
+	string Grundriss;
+	int ErzknotenAnzahl;
+	Höhlendaten(string name, int X, int Y, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
+	{
+		Index = 0;
+		this->name = name;
+		Zusatz = this->Grundriss;
+		this->X = X;
+		this->Y = Y;
+	};
+	Höhlendaten(Koordinaten cords, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
+	{
+		Index = 0;
+		this->name = name;
+		Zusatz = this->Grundriss;
+		this->X = cords.getX();
+		this->Y = cords.getY();
 	};
 
-	/* Basisklasse für den Namen - Für einen Vererbungszugriff - Trennt mögliche andere string  */
-	class NAME
+	operator Koordinaten()
 	{
-	public:
-		string name;
-		/* Zero Access - Spätere Terminierung "zum erzwingen einen Namen zu Übergeben" */
-		NAME() {};
-		NAME(string name) : name(name) {};
-		/* Möglichkeit nach der Zuweisung weitere Zugriffe zu ermöglichen */
-		NAME operator() (string name) { this->name = name; return *this; };
-		string getName() { return name; };
+		return Koordinaten(this->getX(), this->getY());
+	}
+	operator glm::vec2()
+	{
+		return glm::vec2(X, Y);
+	}
+};
+
+/* Klasse für die Missionspunkte - Empfohlen - Ladungspunkt die Belohnungen zu übergeben.  Klasse zur Verbindung mit der Basisanwahl*/
+class Missionsdaten : public BASISATTRIBUTE
+{
+
+public:
+	string Missionsbeschreibung;
+	string Missionstyp;
+	int Belohnung_Ren;
+
+	Missionsdaten(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) :
+		Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
+	{
+		Index = 1;
+		Zusatz = this->Missionsbeschreibung;
+		this->name = Missionsname;
+		this->X = X;
+		this->Y = Y;
+	};
+	Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) :
+		Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
+	{
+		Index = 1;
+		Zusatz = this->Missionsbeschreibung;
+		//*Zusatz = 
+		this->name = Missionsname;
+		this->X = cords.getX();
+		this->Y = cords.getY();
 	};
 
-	/* Klasse zur Speicherung der Maus Steuerinformationen für einen Vereinfachten Zugriff */
-	class MAUS
+	operator Koordinaten()
 	{
-	public:
-		bool Is_Links_Klickt, Is_Rechts_Klickt;
-		int Action;
-		double X, Y, Z;
-		float NX, NY;
+		return Koordinaten(this->getX(), this->getY());
+	}
+	operator glm::vec2()
+	{
+		return glm::vec2(X, Y);
+	}
+
+	glm::vec2 getKoordinaten()
+	{
+		return  glm::vec2(X, Y);
+	}
+	string getName()
+	{
+		return name;
 	};
-
-	/* Stark Vereinfachte Kamera - Positionierung (C) mithilfe von vec3 - Speicher der View und projection Matrix */
-	class Simple_Cam
+	string getTyp()
 	{
-	public:
-		glm::vec3 C;
-		glm::mat4 view = glm::mat4(1.0f);
-		glm::mat4 projection = glm::mat4(1.0f);
-	} Cam;
-
-	/* Klassen für die Klassenvererbung von Koordinaten und Name - Zusammengefaster/Polymorpher Zugriff zu den "Targets" */
-	class BASISATTRIBUTE : public Koordinaten, public NAME
-	{
-	public:
-		int Index;
-		string Zusatz;
-
-		BASISATTRIBUTE() {};
-		BASISATTRIBUTE(float x, float y, int Index, string name, string Zusatz) : Index(Index)
-		{
-			this->X = x;
-			this->Y = y;
-			this->name = name;
-			this->Zusatz = Zusatz;
-		}
-
-		operator glm::vec2()
-		{
-			return glm::vec2(X, Y);
-		}
-
-		glm::vec2 getKoordinaten()
-		{
-			return  glm::vec2(X, Y);
-		}
+		return Missionstyp;
 	};
-
-	/* Klasse für die Zusammenfassung der Höhlendaten und verbinden mit der Basisanwahl */
-	class Höhlendaten : public BASISATTRIBUTE
+	string getBeschreibung()
 	{
-
-	public:
-		string Grundriss;
-		int ErzknotenAnzahl;
-		Höhlendaten(string name, int X, int Y, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
-		{
-			Index = 0;
-			this->name = name;
-			Zusatz = this->Grundriss;
-			this->X = X;
-			this->Y = Y;
-		};
-		Höhlendaten(Koordinaten cords, string Grundriss, int Anzahl) : Grundriss(Grundriss), ErzknotenAnzahl(Anzahl)
-		{
-			Index = 0;
-			this->name = name;
-			Zusatz = this->Grundriss;
-			this->X = cords.getX();
-			this->Y = cords.getY();
-		};
-
-		operator Koordinaten()
-		{
-			return Koordinaten(this->getX(), this->getY());
-		}
-		operator glm::vec2()
-		{
-			return glm::vec2(X, Y);
-		}
+		return Missionsbeschreibung;
 	};
-
-	/* Klasse für die Missionspunkte - Empfohlen - Ladungspunkt die Belohnungen zu übergeben.  Klasse zur Verbindung mit der Basisanwahl*/
-	class Missionsdaten : public BASISATTRIBUTE
+	int getRen()
 	{
+		return Belohnung_Ren;
+	}
 
-	public:
-		string Missionsbeschreibung;
-		string Missionstyp;
-		int Belohnung_Ren;
-
-		Missionsdaten(float X, float Y, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) :
-			Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
-		{
-			Index = 1;
-			Zusatz = this->Missionsbeschreibung;
-			this->name = Missionsname;
-			this->X = X;
-			this->Y = Y;
-		};
-		Missionsdaten(Koordinaten cords, string Missionsname, string Missionstyp, string Missionsbeschreibung, int Ren) :
-			Missionsbeschreibung(Missionsbeschreibung), Missionstyp(Missionstyp), Belohnung_Ren(Ren)
-		{
-			Index = 1;
-			Zusatz = this->Missionsbeschreibung;
-			//*Zusatz = 
-			this->name = Missionsname;
-			this->X = cords.getX();
-			this->Y = cords.getY();
-		};
-
-		operator Koordinaten()
-		{
-			return Koordinaten(this->getX(), this->getY());
-		}
-		operator glm::vec2()
-		{
-			return glm::vec2(X, Y);
-		}
-
-		glm::vec2 getKoordinaten()
-		{
-			return  glm::vec2(X, Y);
-		}
-		string getName()
-		{
-			return name;
-		};
-		string getTyp()
-		{
-			return Missionstyp;
-		};
-		string getBeschreibung()
-		{
-			return Missionsbeschreibung;
-		};
-		int getRen()
-		{
-			return Belohnung_Ren;
-		}
-
-		int *getInt()
-		{
-			return &Belohnung_Ren;
-		}
-	};
-
-	/* Klasse für die Fensterdaten - Größe des Fensters sowie "anwahl" */
-	class window : public Koordinaten
+	int *getInt()
 	{
-	public:
-		MAUS Maus;
+		return &Belohnung_Ren;
+	}
+};
 
-		glm::vec3 MAUS()
-		{
-			return glm::vec3(Maus.X, Maus.Y, Maus.Z);
-		}
-		window() : Koordinaten(800, 600) {};
-		glm::vec4 viewport = { 0,0,X,Y };
+/* Klasse für die Fensterdaten - Größe des Fensters sowie "anwahl" */
+class window : public Koordinaten
+{
+public:
+	MAUS Maus;
 
-
-		BASISATTRIBUTE *ID;	/* Variable für die Basisanwahl */
-		unsigned int Arrayindex = 99999;
-
-		void operator() (int X, int Y)
-		{
-			this->X = X;
-			this->Y = Y;
-			viewport = { 0,Y,X,-Y };
-		}
-	}Fensterdaten;
-
-
-#ifndef DEFINITIONEN
-	#define DEFINITIONEN
-	typedef unsigned int uint;
-
-	#define MISSIONSNAME string("Missionsname")
-	#define MISSIONSTYP string("Missionstyp")
-	#define POSITIONX string("Position_X")
-	#define POSITIONY string("Position_Y")
-	#define MISSIONSBESCHREIBUNG string("Missionsbeschreibung")
-	#define REN string("Ren")
-	#define EXOTICS string("Exotics")
-	#define GRUNDRISS string("Grundriss")
-	#define ERZDEPOSITS string("Erzdeposits")
-	#define FUNKTIONSLOS string("Funktionslos")
-
-	#define SQL_EINFÜGEN_IN string("INSERT INTO ")
-	#define SQL_WÄHLE_ALLE_VON string("SELECT * FROM ")
-	#define SQL_WÄHLE_EINZIGARTIGE string("SELECT DISTINCT " + MISSIONSNAME + ", " + MISSIONSTYP + " FROM ")
-	#define SQL_WO string(" WHERE ")
-
-	#define CAVEENTRACE string("`caveentrace`")
-	#define BENUTZERVERWALTUNG string("`Benutzerverwaltung`")
-	#define MISSIONEN string("`mission`")
-	
-
-	#define HILFSMARKER ImGui::SameLine(); HelpMarker("USER:\n""Hold SHIFT or use mouse to select text.\n""CTRL+Left/Right to word jump.\n""CTRL+A or double-click to select all.\n""CTRL+X,CTRL+C,CTRL+V clipboard.\n""CTRL+Z,CTRL+Y undo/redo.\n""ESCAPE to revert.\n");
-#endif
-
-#ifndef BASICDECLARATIONEN
-#define BASICDECLARATIONEN
-
-	//for demonstration only. never save your password in the code!
-	const std::string server = "tcp://127.0.0.1:3306";
-	const std::string username = "Hengar";
-	const std::string password = "Affenbrot12";
-
-	std::string Benutzername = "";
-	std::string Passwort = "";
-	int loginlvl = -1;
-
-	/// Holds all state information relevant to a character as loaded using FreeType
-	struct Character
+	glm::vec3 MAUS()
 	{
-		unsigned int TextureID; // ID handle of the glyph texture
-		glm::ivec2   Size;      // Size of glyph
-		glm::ivec2   Bearing;   // Offset from baseline to left/top of glyph
-		unsigned int Advance;   // Horizontal offset to advance to next glyph
-	};
-	map<GLchar, Character> Characters;
-	uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen, texture1, texture2;
+		return glm::vec3(Maus.X, Maus.Y, Maus.Z);
+	}
+	window() : Koordinaten(800, 600) {};
+	glm::vec4 viewport = { 0,0,X,Y };
 
-	vector<pair<string,string>> Missionsliste;	/* Datenspeicher für die Missionsauswahl */
-	vector<Höhlendaten> Höhlenentraces;			/* Datenspeicher für die "vorhandenen" Höhleneingänge */
-	vector<Missionsdaten> MISSIONSDATEN;		/* Datenspeicher für die "vorhandenen" Missionsdaten */
-	vector<BASISATTRIBUTE> EXOTICknoten;		/* Datenspeicher für die "vorhandenen" Exotic Spots */
-	vector<BASISATTRIBUTE> BOSSEknoten;			/* Datenspeicher für die "vorhandenen" Bosse */
-#endif
+
+	BASISATTRIBUTE *ID;	/* Variable für die Basisanwahl */
+	unsigned int Arrayindex = 99999;
+
+	void operator() (int X, int Y)
+	{
+		this->X = X;
+		this->Y = Y;
+		viewport = { 0,Y,X,-Y };
+	}
+}Fensterdaten;
+
+typedef unsigned int uint;
+
+
+
+//for demonstration only. never save your password in the code!
+const std::string server = "tcp://127.0.0.1:3306";
+const std::string username = "Hengar";
+const std::string password = "Affenbrot12";
+
+std::string Benutzername = "";
+std::string Passwort = "";
+int loginlvl = -1;
+
+/// Holds all state information relevant to a character as loaded using FreeType
+struct Character
+{
+	unsigned int TextureID; // ID handle of the glyph texture
+	glm::ivec2   Size;      // Size of glyph
+	glm::ivec2   Bearing;   // Offset from baseline to left/top of glyph
+	unsigned int Advance;   // Horizontal offset to advance to next glyph
+};
+map<GLchar, Character> Characters;
+uint   Roter_Tropfen, Blauer_Tropfen, Gelber_Tropfen, Schwarzer_Tropfen, texture1, texture2;
+
+vector<pair<string,string>> Missionsliste;	/* Datenspeicher für die Missionsauswahl */
+vector<Höhlendaten> Höhlenentraces;			/* Datenspeicher für die "vorhandenen" Höhleneingänge */
+vector<Missionsdaten> MISSIONSDATEN;		/* Datenspeicher für die "vorhandenen" Missionsdaten */
+vector<BASISATTRIBUTE> EXOTICknoten;		/* Datenspeicher für die "vorhandenen" Exotic Spots */
+vector<BASISATTRIBUTE> BOSSEknoten;			/* Datenspeicher für die "vorhandenen" Bosse */
 
 bool SQL_EINLESEN = false;				/* Bit zur Steuerung, ob beim Start das SQL eingelesen werden soll */
 bool Interface_Hovered;					/* Bit zur Steuerung, das sobald dass Interface "angewählt" ist, nicht die Karte "bewegt" wird */
@@ -360,7 +323,7 @@ bool Mission_Ausgewählt = false;
 bool Reset = false;
 bool Wechsel = false;
 
-bool compare(string t1, char* t2)
+bool compare(std::string t1, char* t2)
 {
 	return t1 == string(t2);
 }
@@ -684,7 +647,7 @@ public:
 	{
 		stmt = con->createStatement();
 		stmt->execute("DROP TABLE IF EXISTS " + CAVEENTRACE);
-		cout << "Finished dropping table " + CAVEENTRACE + " (if existed)" << endl;
+		std::cout << "Finished dropping table " + CAVEENTRACE + " (if existed)" << endl;
 		stmt->execute("CREATE TABLE " + CAVEENTRACE + " (id serial PRIMARY KEY, Name VARCHAR(50), Position_X FLOAT, Position_Y FLOAT, Grundriss VARCHAR(50), Erzdeposits INTEGER);");
 		cout << "Finished creating table" + CAVEENTRACE << endl;
 
@@ -1601,7 +1564,10 @@ inline void processInput(GLFWwindow *window)
 {
 	// Die Default Steuerung zum Schließen des Fensters
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	{
 		glfwSetWindowShouldClose(window, true);
+		ioservice.stop();
+	}
 
 	if(!Interface_Hovered)
 	{
@@ -1756,6 +1722,664 @@ inline void Conv_Str_char(char * buf, string t)
 	}
 }
 
+#define SYNCHRON_CLIENT
+
+#ifdef SERVER_DATEN_ABRUF
+	/* Client seitig */
+	void read_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
+	{
+		if (!ec)
+		{
+			std::cout.write(bytes.data(), bytes_transferred);
+			tcp_socket.async_read_some(buffer(bytes), read_handler);
+		}
+	}
+	void connect_handler(const boost::system::error_code &ec)
+	{
+		if (!ec)
+		{
+			std::string r =	"GET / HTTP/1.1\r\nHost: theboostcpplibraries.com\r\n\r\n"; //virtualberater.com
+			write(tcp_socket, buffer(r));
+			tcp_socket.async_read_some(buffer(bytes), read_handler);
+		}
+	}
+	void resolve_handler(const boost::system::error_code &ec, tcp::resolver::iterator it)
+	{
+		if (ec)
+		{
+			cout << "Resolve failed with msg:" << ec.message();
+		}
+		else
+		{
+			tcp::endpoint tcp_endpoints = *it;
+
+			tcp_socket.async_connect(*it, connect_handler);
+			cout << "Verbunden mit " << tcp_endpoints.address() << ":" << tcp_endpoints.port() << endl << endl;
+		}
+	}
+#endif
+
+#ifdef LISTEN_ALLGEMEIN_AUFRUF
+	/* Server Seitig */
+	void write_handler(const boost::system::error_code &ec, std::size_t bytes_transferred)
+	{
+		if (ec)
+		{
+			//write(tcp_socket2, buffer(test));
+			cout << ec.message();
+		}
+		else 
+		{
+			tcp_socket2.shutdown(tcp::socket::shutdown_send);
+		}
+	}
+	void accept_handler(const boost::system::error_code &ec)
+	{
+		if (ec)
+		{
+			cout << " Failed to Accept with Msg: " << ec.message() << endl;
+		}
+		else
+		{
+			std::stringstream response;
+			response << "HTTP/1.1 200 OK"			<< HTML_END_COLUM;
+			response <<								   HTML_END_COLUM;
+			response << "<html>"					<< HTML_END_COLUM;
+			response << "<body>"					<< HTML_END_COLUM;
+			response << "<h1>Hallo Welt </h1>"		<< HTML_END_COLUM;
+			response << "</body>"					<< HTML_END_COLUM;
+			response << "</html>"					<< HTML_END_COLUM;
+
+			//std::time_t now = std::time(nullptr);
+			//data2 = std::ctime(&now);
+			//async_write(tcp_socket2, buffer(response.str()), write_handler);
+			try {
+				//auto temp = boost::asio::buffer(response.str().data(), response.str().size());//
+				//string test = "test";
+				//ConstBufferSequenz z;
+				tcp_socket2.send(boost::asio::buffer(response.str()));
+				//tcp_socket2.write_some(temp);
+				//write(tcp_socket2, buffer(test));
+				//async_write(tcp_socket2, temp, write_handler);
+			}
+			catch (boost::system::error_code &e)
+			{
+				cout << e.message();
+				;
+			}
+			cout << response.str();
+		}
+	}
+#endif
+
+#ifdef DAY_TIME_LISTEN_ASYNC_SERVER
+	/* Daytime asynchron */
+	std::string make_daytime_string()
+	{
+		using namespace std; // For time_t, time and ctime;
+		time_t now = time(0);
+		return ctime(&now);
+	}
+	class tcp_connection : public boost::enable_shared_from_this<tcp_connection>
+	{
+		tcp::socket socket_;
+		std::string message_;
+
+		tcp_connection(boost::asio::io_context& io_context) : socket_(io_context)
+		{
+		}
+
+		void handle_write(const boost::system::error_code& /*error*/, size_t /*bytes_transferred*/)
+		{
+		}
+
+	public:
+		typedef boost::shared_ptr<tcp_connection> pointer;
+
+		static pointer create(boost::asio::io_context& io_context)
+		{
+			return pointer(new tcp_connection(io_context));
+		}
+
+		tcp::socket& socket()
+		{
+			return socket_;
+		}
+
+		void start()
+		{
+			message_ = make_daytime_string();
+
+			boost::asio::async_write(socket_, boost::asio::buffer(message_), boost::bind(&tcp_connection::handle_write, shared_from_this(),
+					boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+		}
+	};
+	class tcp_server
+	{
+		boost::asio::io_context& io_context_;
+		tcp::acceptor acceptor_;
+
+		void start_accept()
+		{
+			tcp_connection::pointer new_connection = tcp_connection::create(io_context_);
+
+			acceptor_.async_accept(new_connection->socket(), boost::bind(&tcp_server::handle_accept, this, new_connection, boost::asio::placeholders::error));
+		}
+
+		void handle_accept(tcp_connection::pointer new_connection, const boost::system::error_code& error)
+		{
+			if (!error)
+			{
+				new_connection->start();
+			}
+
+			start_accept();
+		}
+	public:
+		tcp_server(boost::asio::io_context& io_context)	: io_context_(io_context),	acceptor_(io_context, tcp::endpoint(tcp::v4(), 13))
+		{
+			start_accept();
+		}		
+	};
+#endif
+
+#ifdef HEARTHBEAT_SERVER
+	void write_data(boost::asio::ip::tcp::socket& sock, std::string data)
+	{
+		boost::system::error_code error;
+		std::string msg;
+		int ch = data[0] - '0';
+		switch (ch)
+		{
+		case 1: msg = "Case 1\n"; break;
+		case 2: msg = "Case 2\n"; break;
+		case 3: msg = "Case 3\n"; break;
+		case 4: msg = "Case 4\n"; break;
+		default: msg = "Case default\n"; break;
+		}
+		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
+		if (!error)
+		{
+			std::cout << "Server sent " << msg << std::endl;
+		}
+		else
+		{
+			std::cout << "send failed: " << error.message() << std::endl;
+		}
+	};
+	std::string read_data(boost::asio::ip::tcp::socket& sock)
+	{
+		boost::asio::streambuf buf;
+		boost::asio::read_until(sock, buf, "\n");
+		std::string data = boost::asio::buffer_cast<const char*>(buf.data());
+		return data;
+	};
+	void process(boost::asio::ip::tcp::socket& sock)
+	{
+		while (1)
+		{
+			std::string data = read_data(sock);
+			std::cout << "Client's request is: " << data << std::endl;
+			if (data[0] == 'H')
+			{
+				std::string msg = "HEARTBEAT";
+				//data='5';
+				boost::asio::write(sock, boost::asio::buffer(msg + '\n'));
+				std::cout << "******************HEARTBEAT sent to clinet********************\n";
+			}
+			else
+				write_data(sock, data);
+		}
+	};	
+#endif
+
+#ifdef HEARTHBEAT_CLIENT
+	void read_data(boost::asio::ip::tcp::socket &sock)// for reading data
+	{
+		boost::system::error_code error;
+		// 	getting response from server
+		boost::asio::streambuf receive_buffer;
+		//boost::asio::read(socket, receive_buffer, boost::asio::transfer_all(), error);
+		boost::asio::read_until(sock, receive_buffer, "\n");
+		if (error && error != boost::asio::error::eof)
+		{
+			std::cout << "receive failed: " << error.message() << std::endl;
+		}
+		else
+		{
+			const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
+			std::cout << "Received " << data << std::endl;
+		}
+	};
+	void write_data(boost::asio::ip::tcp::socket &sock)
+	{
+		//while(1){
+		//Message to sent for server
+		std::string msg;
+		std::cout << "Enter the message to sent\n";
+		//std::cin>>msg;
+		std::getline(std::cin, msg); //for getting complete line
+		boost::system::error_code error;
+
+		//Write message to socket
+		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
+		if (!error)
+		{
+			std::cout << "Client sent " << msg << std::endl;
+		}
+		else
+		{
+			std::cout << "send failed: " << error.message() << std::endl;
+		}
+		//}
+	};
+	void IOthread(boost::asio::ip::tcp::socket &sock)
+	{
+		write_data(sock);
+		read_data(sock);
+	}
+	void sleepThread(boost::asio::ip::tcp::socket & sock)
+	{
+		std::this_thread::sleep_for(std::chrono::seconds(5)); //sleep thread for 5 seconds
+		//boost::system::error_code error;
+		std::string msg = "HEARTBEAT";
+		std::cout << "Trying to write\n";
+		boost::asio::write(sock, boost::asio::buffer(msg + '\n'));
+		std::cout << "###### Requested for HEARTBEAT#########\n";
+		//read_data(sock);
+		//std::cout<<"\nReceived "<<str<<std::endl;
+		boost::asio::streambuf receive_buffer;
+		boost::asio::read_until(sock, receive_buffer, "\n");
+		const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
+		std::cout << "******************Received   " << data << "  *************  " << std::endl;
+		sleepThread(sock); //call recursively 
+	}	
+#endif
+
+#ifdef CHAT_SERVER
+	void write_data(boost::asio::ip::tcp::socket & sock)
+	{
+		boost::system::error_code error;
+		std::string msg;
+		std::cout << "Enter the message \n";
+		//std::cin>>msg;
+		std::getline(std::cin, msg); //For getting complete line 
+		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
+		if (!error)
+		{
+			std::cout << "Server sent hello message!" << std::endl;
+		}
+		else
+		{
+			std::cout << "send failed: " << error.message() << std::endl;
+		}
+	};
+	std::string read_data(boost::asio::ip::tcp::socket & sock)
+	{
+		boost::asio::streambuf buf;
+		boost::asio::read_until(sock, buf, "\n");
+		std::string data = boost::asio::buffer_cast<const char*>(buf.data());
+		return data;
+	};
+	void process(boost::asio::ip::tcp::socket & sock)
+	{
+		while (1)
+		{
+			std::string data = read_data(sock);
+			std::cout << "Client's request is: " << data << std::endl;
+
+			write_data(sock);
+		}
+	};	
+#endif
+#ifdef CHAT_CLIENT
+	std::string read_data(boost::asio::ip::tcp::socket &sock)
+	{
+		boost::system::error_code error;
+		// 	getting response from server
+		boost::asio::streambuf receive_buffer;
+		//boost::asio::read(socket, receive_buffer, boost::asio::transfer_all(), error);
+		boost::asio::read_until(sock, receive_buffer, "\n");
+		if (error && error != boost::asio::error::eof)
+		{
+			std::cout << "receive failed: " << error.message() << std::endl;
+		}
+		else
+		{
+			const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
+			std::cout << "Received " << data << std::endl;
+		}
+
+	};
+	void write_data(boost::asio::ip::tcp::socket &sock)
+	{
+		//Message to sent for server
+		std::string msg;
+		std::cout << "Enter the message to sent\n";
+		//std::cin>>msg;
+		std::getline(std::cin, msg); //for getting complete line
+		boost::system::error_code error;
+
+		//Write message to socket
+		boost::asio::write(sock, boost::asio::buffer(msg + "\n"), error);
+		if (!error)
+		{
+			std::cout << "Client sent hello message!" << std::endl;
+		}
+		else
+		{
+			std::cout << "send failed: " << error.message() << std::endl;
+		}
+
+	};
+#endif
+#ifdef SYNCHRON_SERVER
+	void process(boost::asio::ip::tcp::socket & sock)
+	{
+		/* Datensatz */
+		boost::asio::streambuf buf;
+		/* Datenempfang */
+		boost::asio::read_until(sock, buf, "\n");
+		/* Daten Umwandeln in String*/
+		std::string data = boost::asio::buffer_cast<const char*>(buf.data());
+		/* Ausgabe in der Server Konsole*/
+		std::cout << "Client's request is: " << data << std::endl;
+
+		/* Datenerstellung */
+		data = "Hello from server";
+
+		std::stringstream response;
+		response << "HTTP/1.1 200 OK" << HTML_END_COLUM;
+		response << HTML_END_COLUM;
+		response << "<html>" << HTML_END_COLUM;
+		response << "<body>" << HTML_END_COLUM;
+		response << "<h1>Hallo Welt </h1>" << HTML_END_COLUM;
+		response << "</body>" << HTML_END_COLUM;
+		response << "</html>" << HTML_END_COLUM;
+
+
+		/* Daten schreiben */
+		boost::asio::write(sock, boost::asio::buffer(response.str()));
+		/* Ausgabe in der Server Konsole*/
+		std::cout << "server sent data : " << response.str() << std::endl;
+
+	}
+#endif
+
+void threads()
+{
+	#ifdef SERVER_DATEN_ABRUF
+	string adress = "theboostcpplibraries.com";////"https://www.virtualberater.com/";"localhost";
+		tcp::resolver::query q{ adress, "80" };
+		resolv.async_resolve(q, resolve_handler);
+	#endif
+	#ifdef LISTEN_ALLGEMEIN_AUFRUF
+		if (!socket_soffen)
+		{
+			tcp::resolver::query q{ "127.0.0.1", "8000" };
+			tcp::endpoint tcp_endpoint = *(resolv.resolve(q));
+
+			tcp_acceptor.open(tcp_endpoint.protocol());
+			tcp_acceptor.bind(tcp_endpoint);
+			tcp_acceptor.listen(socket_base::max_connections);
+			tcp_acceptor.async_accept(tcp_socket, accept_handler);
+			socket_soffen = true;
+		}
+	#endif
+	#ifdef DAY_TIME_LISTEN_ASYNC_SERVER
+		tcp_server server(ioservice);
+	#endif
+	
+	
+#ifdef HEARTHBEAT_SERVER
+		unsigned short port_num = 3333;
+		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
+		try
+		{
+			boost::asio::ip::tcp::acceptor acceptor(ioservice, ep.protocol());
+			acceptor.bind(ep);
+			acceptor.listen();
+			boost::asio::ip::tcp::socket sock(ioservice);
+			acceptor.accept(sock);
+
+			//   std::thread t([&sock]() {
+			//       hearbeatSender(sock);
+			//   });
+			process(sock);
+			//  t.join();
+
+		}
+		catch (boost::system::system_error& e)
+		{
+			std::cout << "Error occured! Error code = " << e.code()
+				<< ". Message: " << e.what();
+
+			cout << e.code().value();
+		}
+#endif
+#ifdef HEARTHBEAT_CLIENT
+		unsigned short port_num = 3333;
+
+		//socket creation
+		boost::asio::ip::tcp::socket sock(ioservice);
+
+		//connection
+		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
+
+		sock.connect(ep);
+		std::thread t2([&sock]() { sleepThread(sock); });
+		while (1)
+		{
+			IOthread(sock); //calling from main thread.
+		}
+#endif
+#ifdef CHAT_SERVER
+		//const int BACKLOG_SIZE = 30;
+
+		// Step 1. Here we assume that the server application has already obtained the protocol port number.
+		unsigned short port_num = 3333;
+		// Step 2. Creating a server endpoint.
+		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
+		//we need at least one io_service instance. boost::asio uses io_service to talk with operating system's I/O services. 
+		//while(1){
+		try
+		{
+			// Step 3. Instantiating and opening an acceptor socket.
+			boost::asio::ip::tcp::acceptor acceptor(ioservice, ep.protocol());
+			// Step 4. Binding the acceptor socket to the server endpint.
+			acceptor.bind(ep);
+			// Step 5. Starting to listen for incoming connection requests.
+			acceptor.listen();
+
+			// Step 6. Creating an active socket.
+			boost::asio::ip::tcp::socket sock(ioservice);
+			// Step 7. Processing the next connection request and connecting the active socket to the client.
+			acceptor.accept(sock);
+
+			//all steps for creating socket using boost::asio are done.
+
+			//Now perform read write operations in a function.
+			//while(1)
+			process(sock);
+
+		}
+		catch (boost::system::system_error &e)
+		{
+			std::cout << "Error occured! Error code = " << e.code()
+				<< ". Message: " << e.what();
+
+			cout << e.code().value();
+		}
+		//}
+#endif
+#ifdef CHAT_CLIENT
+		unsigned short port_num = 3333;
+
+		//socket creation
+		boost::asio::ip::tcp::socket socket(ioservice);
+
+		//connection
+		boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
+
+		socket.connect(ep);
+		
+		while (1)
+		{
+
+			write_data(socket);
+			std::string str = read_data(socket);
+			//sleep(2); //wait for 2 second if you need otherwise comment it.
+		}
+
+#endif
+	try
+	{
+		#ifdef SYNCHRON_SERVER
+			const int BACKLOG_SIZE = 30;
+
+			// Step 1. Hier fügen wir dem Server Programm die Protocoll Port Nummer.
+			unsigned short port_num = 3333;
+			// Step 2. Erstelle ein server endpoint.
+			boost::asio::ip::tcp::endpoint ep(boost::asio::ip::address_v4::any(), port_num);
+
+			// Step 3. Instantiating and opening an acceptor socket.
+			boost::asio::ip::tcp::acceptor acceptor(ioservice, ep.protocol());
+			// Step 4. Binding the acceptor socket to the server endpint.
+			acceptor.bind(ep);
+			// Step 5. Starting to listen for incoming connection requests.
+			acceptor.listen(BACKLOG_SIZE);
+
+			// Step 6. Creating an active socket.
+			boost::asio::ip::tcp::socket sock(ioservice);
+			// Step 7. Processing the next connection request and connecting the active socket to the client.
+			acceptor.accept(sock);
+
+			//all steps for creating socket using boost::asio are done.
+
+			//Now perform read write operations in a function.
+			//while(1)
+			process(sock);
+
+			//tcp::acceptor acceptor(ioservice, tcp::endpoint(tcp::v4(), 13));
+
+			for (;;)
+			{
+				tcp::socket socket(ioservice);
+				acceptor.accept(socket);
+
+				std::string message = "hi";
+
+				std::stringstream response;
+				response << "HTTP/1.1 200 OK" << HTML_END_COLUM;
+				response << HTML_END_COLUM;
+				response << "<html>" << HTML_END_COLUM;
+				response << "<body>" << HTML_END_COLUM;
+				response << "<h1>Hallo Welt </h1>" << HTML_END_COLUM;
+				response << "</body>" << HTML_END_COLUM;
+				response << "</html>" << HTML_END_COLUM;
+
+				boost::system::error_code ignored_error;
+				boost::asio::write(socket, boost::asio::buffer(response.str()), ignored_error);
+
+				cout << response.str() << endl;
+			}
+		#endif
+
+		#ifdef DAYTIME_CLIENT
+				try
+				  {
+					if (argc != 2)
+					{
+					  std::cerr << "Usage: client <host>" << std::endl;
+					  return 1;
+					}
+
+					tcp::resolver resolver(ioservice);
+					tcp::resolver::results_type endpoints = resolver.resolve(argv[1], "daytime");
+
+					tcp::socket socket(ioservice);
+					boost::asio::connect(socket, endpoints);
+
+					for (;;)
+					{
+					  boost::array<char, 128> buf;
+					  boost::system::error_code error;
+
+					  size_t len = socket.read_some(boost::asio::buffer(buf), error);
+
+					  if (error == boost::asio::error::eof)
+						break; // Connection closed cleanly by peer.
+					  else if (error)
+						throw boost::system::system_error(error); // Some other error.
+
+					  std::cout.write(buf.data(), len);
+					}
+				  }
+		#endif
+
+	#ifdef SYNCHRON_CLIENT
+				unsigned short port_num = 3333;
+
+				tcp::resolver::query q{ "127.0.0.1", "3333" };
+				//tcp::endpoint tcp_endpoint = *(resolv.resolve(q));
+
+				//socket creation
+				boost::asio::ip::tcp::socket socket(ioservice);				
+
+				//connection
+				boost::asio::ip::tcp::endpoint ep = *(resolv.resolve(q));//(boost::asio::ip::address_v4::any(), port_num);
+				socket.connect(ep);
+
+				//Message to sent for server
+				const std::string msg = "Hello from Client!\n";
+
+				boost::system::error_code error;
+				//Write message to socket
+				boost::asio::write(socket, boost::asio::buffer(msg), error);
+				if (!error)
+				{
+					//std::cout << "Client sent hello message!" << std::endl;
+					/* Datensatz */
+					boost::asio::streambuf buf;
+					/* Datenempfang */
+					boost::asio::read_until(socket, buf, "\n");
+					/* Daten Umwandeln in String*/
+					std::string data = boost::asio::buffer_cast<const char*>(buf.data());
+					/* Ausgabe in der Server Konsole*/
+					std::cout << "Server Response is is: " << data << std::endl;
+				}
+				else
+				{
+					std::cout << "send failed: " << error.message() << std::endl;
+				}
+				// getting response from server
+				boost::asio::streambuf receive_buffer;
+				boost::asio::read(socket, receive_buffer, boost::asio::transfer_all(), error);
+				if (error && error != boost::asio::error::eof)
+				{
+					std::cout << "receive failed: " << error.message() << std::endl;
+				}
+				else
+				{
+					const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
+					std::cout << "Received " << data << std::endl;
+				}
+
+	#endif
+
+
+		//ioservice.run();				
+	}
+	catch (std::exception& e)
+	{
+		std::cerr << e.what() << std::endl;
+	}
+	catch (...)
+	{
+	}
+	THREAD_DONE = false;
+}
+
 int main()
 {
 	/* Initialisieren und Konfigurieren von GLFW */
@@ -1855,11 +2479,21 @@ int main()
 	ourShader.setInt("texture2", 1);
 	
 	float radians = 0.0;
+	
+
+
+	//t.join();
 
 	// render loop
 	// -----------
 	while (!glfwWindowShouldClose(window))
 	{
+		if(!THREAD_DONE)
+		{
+			THREAD_DONE = true;
+			boost::thread t{ threads };
+		}
+
 		{
 		/* Tastertur und Mauseingaben */
 		processInput(window);
@@ -1917,8 +2551,8 @@ int main()
 				static char PASSWORT[128] = "Passwort";
 				//static int Benutzerlevel = 2;
 
-				ImGui::InputText("Benutzername", BENUTZERNAMEN, IM_ARRAYSIZE(BENUTZERNAMEN));				HILFSMARKER
-				ImGui::InputText("Passwort", PASSWORT, IM_ARRAYSIZE(PASSWORT), ImGuiInputTextFlags_Password);								HILFSMARKER
+				ImGui::InputText("Benutzername", BENUTZERNAMEN, IM_ARRAYSIZE(BENUTZERNAMEN));							HILFSMARKER
+				ImGui::InputText("Passwort", PASSWORT, IM_ARRAYSIZE(PASSWORT), ImGuiInputTextFlags_Password);			HILFSMARKER
 				//ImGui::InputInt("Anzahl", &Benutzerlevel);
 
 				if (ImGui::Button("Einloggen"))

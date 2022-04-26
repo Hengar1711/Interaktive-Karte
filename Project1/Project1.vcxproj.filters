@@ -92,6 +92,9 @@
     <ClInclude Include="Interaktive_Karte.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="Verbindung.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMet.txt" />
